@@ -1,0 +1,32 @@
+# IDE files
+.project
+.cproject
+.settings
+.idea
+*.tmp.*
+.vscode
+
+
+# compiled binaries
+/target
+/build
+*.cl.h
+
+# CMake
+cmake-build-*
+CMakeFiles
+cmake_install.cmake
+CMakeCache.txt
+CTestTestfile.cmake
+CMakeDoxyfile.in
+CMakeDoxygenDefaults.cmake
+/Testing
+Makefile
+DartConfiguration.tcl
+
+# generated documentation
+docs/mappingDoc/*
+
+# mapping configuration
+mapping.conf
+conf/settings.toml

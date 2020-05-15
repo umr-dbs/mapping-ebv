@@ -1,0 +1,11 @@
+
+#ifndef MAPPING_GFBIO_NETCDF_PARSER_H
+#define MAPPING_GFBIO_NETCDF_PARSER_H
+
+
+class NetCdfParser {
+
+};
+
+
+#endif //MAPPING_GFBIO_NETCDF_PARSER_H
