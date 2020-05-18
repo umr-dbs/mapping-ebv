@@ -29,3 +29,7 @@ target_include_directories(mapping_gfbio_services_lib PRIVATE ${jsoncpp_SOURCE_D
 target_include_directories(mapping_gfbio_base_lib PRIVATE ${cpptoml_SOURCE_DIR}/include)
 target_include_directories(mapping_gfbio_operators_lib PRIVATE ${cpptoml_SOURCE_DIR}/include)
 target_include_directories(mapping_gfbio_services_lib PRIVATE ${cpptoml_SOURCE_DIR}/include)
+
+target_include_directories(mapping_gfbio_base_lib PRIVATE ${HDF5_CXX_INCLUDE_DIRS})
+target_include_directories(mapping_gfbio_operators_lib PRIVATE ${HDF5_CXX_INCLUDE_DIRS})
+target_include_directories(mapping_gfbio_services_lib PRIVATE ${HDF5_CXX_INCLUDE_DIRS})

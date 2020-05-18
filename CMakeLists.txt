@@ -35,7 +35,8 @@ include(DownloadProject)
 
 find_package(Boost COMPONENTS thread system REQUIRED)
 
-find_package(HDF5 COMPONENTS CXX)
+set(HDF5_USE_STATIC_LIBRARIES ON)
+find_package(HDF5 COMPONENTS CXX REQUIRED)
 
 if (NOT is_mapping_module)
     # Disable options from cpptoml
@@ -69,9 +70,9 @@ if (is_mapping_module)
 
     set(MAPPING_ADD_TO_OPERATORS_LIBRARIES ${MAPPING_ADD_TO_OPERATORS_LIBRARIES} ${Boost_LIBRARIES} PARENT_SCOPE)
 
-    set(MAPPING_ADD_TO_SERVICES_OBJECTS ${MAPPING_ADD_TO_SERVICES_OBJECTS} mapping_ebv_services_lib PARENT_SCOPE)
+    set(MAPPING_ADD_TO_SERVICES_OBJECTS ${MAPPING_ADD_TO_SERVICES_OBJECTS} "${HDF5_CXX_LIBRARIES}" mapping_ebv_services_lib PARENT_SCOPE)
 
-    set(MAPPING_ADD_TO_UNITTESTS_LIBRARIES_INTERNAL ${MAPPING_ADD_TO_UNITTESTS_LIBRARIES_INTERNAL} mapping_ebv_unittests_lib PARENT_SCOPE)
+    set(MAPPING_ADD_TO_UNITTESTS_LIBRARIES_INTERNAL ${MAPPING_ADD_TO_UNITTESTS_LIBRARIES_INTERNAL} "${HDF5_CXX_LIBRARIES}" mapping_ebv_unittests_lib PARENT_SCOPE)
     set(SYSTEMTESTS_mapping-ebv_INTERNAL ${systemtests} PARENT_SCOPE)
 
 endif (is_mapping_module)
