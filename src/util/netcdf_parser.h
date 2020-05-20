@@ -6,10 +6,11 @@
 #include <H5Cpp.h>
 #include <string>
 #include <vector>
+#include <ostream>
 
 class NetCdfParser {
     public:
-        explicit NetCdfParser(const std::string& path) : file(H5::H5File(path, H5F_ACC_RDONLY)) {}
+        explicit NetCdfParser(const std::string &path) : file(H5::H5File(path, H5F_ACC_RDONLY)) {}
 
         // {"Conventions", "units", "creator", "description", "title", "ebv_class",
         //                                                                  "ebv_name", "ebv_dataset", "ebv_entity_levels", "EML", "_NCProperties",
@@ -33,9 +34,31 @@ class NetCdfParser {
 
         auto ebv_entity_levels() const -> std::vector<std::string>;
 
+        struct NetCdfTimeInfo {
+            time_t time_start;
+            std::string time_unit;
+
+            int delta;
+            std::string delta_unit;
+
+            friend std::ostream &operator<<(std::ostream &os, const NetCdfTimeInfo &info) {
+                os << "time_start: " << info.time_start << " time_unit: " << info.time_unit << " delta: " << info.delta << " delta_unit: "
+                   << info.delta_unit;
+                return os;
+            }
+
+            bool operator==(const NetCdfTimeInfo &rhs) const {
+                return time_start == rhs.time_start &&
+                       time_unit == rhs.time_unit &&
+                       delta_unit == rhs.delta_unit &&
+                       delta == rhs.delta;
+            }
+        };
+
+        auto time_info(std::vector<std::string> &path_to_dataset) const -> NetCdfTimeInfo;
+
     private:
         H5::H5File file;
 };
-
 
 #endif //MAPPING_GFBIO_NETCDF_PARSER_H

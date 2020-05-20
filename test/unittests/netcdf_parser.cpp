@@ -2,6 +2,8 @@
 #include <gtest/gtest.h>
 #include <H5Cpp.h>
 #include <util/netcdf_parser.h>
+#include <boost/date_time/posix_time/ptime.hpp>
+#include <boost/date_time/posix_time/conversion.hpp>
 
 TEST(NetCdfParser, base) {
     H5::H5File file("/home/beilschmidt/CLionProjects/mapping-ebv/mamals_ncd_subgroups_times.nc", H5F_ACC_RDONLY);
@@ -87,5 +89,16 @@ TEST(NetCdfParser, attributes) {
             parser.ebv_entity_levels(),
             (std::vector<std::string>{"Abditomys_latidens", "Crocidura_pachyura", "Hylaeamys_perenensis", "Mydaus_marchei",
                                       "Praomys_daltoni", "Tadarida_lobata"})
+    );
+
+    std::vector<std::string> path = {"SSP1xRCP2.6", "mean", "Abditomys_latidens"};
+    ASSERT_EQ(
+            parser.time_info(path),
+            (NetCdfParser::NetCdfTimeInfo{
+                    .time_start = boost::posix_time::to_time_t(boost::posix_time::ptime ({1860, 1, 1}, {0, 0, 0})),
+                    .time_unit = "days", // TODO: day/days/...
+                    .delta = 1,
+                    .delta_unit = "Year", // TODO: case?
+            })
     );
 }

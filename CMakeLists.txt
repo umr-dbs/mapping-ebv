@@ -33,7 +33,7 @@ include(LinkLibrariesInternal)
 # Dependencies
 include(DownloadProject)
 
-find_package(Boost COMPONENTS thread system REQUIRED)
+find_package(Boost COMPONENTS thread system date_time REQUIRED)
 
 set(HDF5_USE_STATIC_LIBRARIES ON)
 find_package(HDF5 COMPONENTS CXX REQUIRED)

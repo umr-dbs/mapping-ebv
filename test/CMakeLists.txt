@@ -27,7 +27,7 @@ if (NOT is_mapping_module)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
 
-    target_link_libraries(mapping_gfbio_unittests_lib gtest ${HDF5_CXX_LIBRARIES})
+    target_link_libraries(mapping_gfbio_unittests_lib gtest ${HDF5_CXX_LIBRARIES} ${Boost_LIBRARIES})
 endif (NOT is_mapping_module)
 
 #list(APPEND systemtests terminology_resolver_first)

@@ -1,5 +1,6 @@
 #include <memory>
 #include <sstream>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include "netcdf_parser.h"
 
 auto attribute_to_string(const H5::Attribute &attribute) -> std::string {
@@ -24,7 +25,7 @@ auto attribute_to_string_vector(const H5::Attribute &attribute) -> std::vector<s
 
     attribute.read(attribute.getDataType(), (void *) buffer->data());
 
-    std::vector<std::string> strings (number_of_values);
+    std::vector<std::string> strings(number_of_values);
 
     for (auto i = 0; i < number_of_values; ++i) {
         strings[i] = (*buffer)[i];
@@ -49,7 +50,7 @@ auto dataset_to_string_vector(const H5::DataSet &dataSet) -> std::vector<std::st
 
     dataSet.read((void *) buffer->data(), dataSet.getDataType());
 
-    std::vector<std::string> strings (number_of_values);
+    std::vector<std::string> strings(number_of_values);
 
     for (auto i = 0; i < number_of_values; ++i) {
         strings[i] = (*buffer)[i];
@@ -94,7 +95,7 @@ auto NetCdfParser::ebv_subgroup_levels() const -> std::vector<std::vector<std::s
 
     const auto raw_values = attribute_to_string(attribute);
 
-    std::vector<std::vector<std::string>> subgroup_levels = { std::vector<std::string>() };
+    std::vector<std::vector<std::string>> subgroup_levels = {std::vector<std::string>()};
     auto level = 0;
 
     std::stringstream subgroup_value;
@@ -132,4 +133,30 @@ auto NetCdfParser::ebv_entity_levels() const -> std::vector<std::string> {
         // TODO: is this case possible?
         return {};
     }
+}
+
+auto NetCdfParser::time_info(std::vector<std::string> &path_to_dataset) const -> NetCdfParser::NetCdfTimeInfo {
+    const auto time_field = file.openDataSet("time");
+
+    const auto time_reference_raw_string = attribute_to_string(time_field.openAttribute("units"));
+
+    const auto time_reference_split_position = time_reference_raw_string.find(" since ");
+    const auto time_reference_unit = time_reference_raw_string.substr(0, time_reference_split_position);
+    const auto time_reference_string = time_reference_raw_string.substr(time_reference_split_position + sizeof(" since ") - 1,
+                                                                        time_reference_raw_string.length());
+
+    const auto time_start = boost::posix_time::time_from_string(time_reference_string);
+
+    const auto time_delta_raw_string = attribute_to_string(time_field.openAttribute("t_delta"));
+
+    const auto time_delta_space_position = time_delta_raw_string.find(' ');
+    const auto time_delta_string = time_delta_raw_string.substr(0, time_delta_space_position);
+    const auto time_delta_unit = time_delta_raw_string.substr(time_delta_space_position + 1, time_delta_raw_string.length());
+
+    return {
+            .time_start = boost::posix_time::to_time_t(time_start),
+            .time_unit = time_reference_unit,
+            .delta = static_cast<int>(strtol(time_delta_string.c_str(), nullptr, 10)),
+            .delta_unit = time_delta_unit,
+    };
 }
