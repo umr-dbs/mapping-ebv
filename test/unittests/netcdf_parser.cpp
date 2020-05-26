@@ -5,65 +5,6 @@
 #include <boost/date_time/posix_time/ptime.hpp>
 #include <boost/date_time/posix_time/conversion.hpp>
 
-TEST(NetCdfParser, base) {
-    H5::H5File file("/home/beilschmidt/CLionProjects/mapping-ebv/mamals_ncd_subgroups_times.nc", H5F_ACC_RDONLY);
-
-    const auto number_of_objects = 9;
-    ASSERT_EQ(file.getNumObjs(), number_of_objects);
-
-    std::string object_names[number_of_objects];
-    for (auto i = 0; i < file.getNumObjs(); ++i) {
-        object_names[i] = file.getObjnameByIdx(i);
-    }
-
-    std::string expected_object_names[number_of_objects] = {"SSP1xRCP2.6", "SSP3xRCP6.0", "SSP5xRCP8.5", "dim_entity", "lat", "lon",
-                                                            "spatial_ref", "time", "var_entities"};
-
-    for (auto i = 0; i < number_of_objects; ++i) {
-        EXPECT_EQ(object_names[i], expected_object_names[i]);
-    }
-
-    const auto dataset = file.openDataSet("var_entities");
-
-    ASSERT_EQ(dataset.getNumAttrs(), 1);
-
-    const auto entities_attribute = dataset.openAttribute((const unsigned int) 0);
-    ASSERT_EQ(entities_attribute.getName(), "DIMENSION_LIST");
-
-    const auto number_of_attributes = 18;
-    ASSERT_EQ(file.getNumAttrs(), number_of_attributes);
-
-    std::string attribute_names[number_of_attributes];
-    for (auto i = 0; i < number_of_attributes; ++i) {
-        attribute_names[i] = file.openAttribute(i).getName();
-    }
-
-    std::string expected_attribute_names[number_of_attributes] = {"Conventions", "units", "creator", "description", "title", "ebv_class",
-                                                                  "ebv_name", "ebv_dataset", "ebv_entity_levels", "EML", "_NCProperties",
-                                                                  "ebv_subgroups", "ebv_subgroups_desc", "ebv_subgroups_levels",
-                                                                  "ebv_subgroups_levels_desc", "ebv_entity_desc", "history",
-                                                                  "ebv_entity_levels_desc"};
-
-    for (auto i = 0; i < number_of_attributes; ++i) {
-        EXPECT_EQ(attribute_names[i], expected_attribute_names[i]);
-    }
-
-    const auto subgroups_attribute = file.openAttribute("ebv_subgroups");
-    ASSERT_EQ(subgroups_attribute.getDataType().getClass(), H5T_STRING);
-
-    std::string buffer;
-    subgroups_attribute.read(subgroups_attribute.getDataType(), buffer);
-    ASSERT_EQ(buffer, "scenario");
-
-    const auto subgroups_levels_attribute = file.openAttribute("ebv_subgroups_levels");
-    ASSERT_EQ(subgroups_levels_attribute.getDataType().getClass(), H5T_STRING);
-
-    std::string buffer2;
-    subgroups_levels_attribute.read(subgroups_levels_attribute.getDataType(), buffer2);
-    ASSERT_EQ(buffer2, "SSP1xRCP2.6,SSP3xRCP6.0,SSP5xRCP8.5;sum,mean,median");
-    ASSERT_EQ(subgroups_levels_attribute.getSpace().getSelectNpoints(), 1);
-}
-
 TEST(NetCdfParser, attributes) {
     // TODO: store example files
     NetCdfParser parser("../../mamals_ncd_subgroups_times.nc");
@@ -91,14 +32,60 @@ TEST(NetCdfParser, attributes) {
                                       "Praomys_daltoni", "Tadarida_lobata"})
     );
 
-    std::vector<std::string> path = {"SSP1xRCP2.6", "mean", "Abditomys_latidens"};
     ASSERT_EQ(
-            parser.time_info(path),
+            parser.time_info(),
             (NetCdfParser::NetCdfTimeInfo{
-                    .time_start = boost::posix_time::to_time_t(boost::posix_time::ptime ({1860, 1, 1}, {0, 0, 0})),
+                    .time_start = boost::posix_time::to_time_t(boost::posix_time::ptime({1860, 1, 1}, {0, 0, 0})),
                     .time_unit = "days", // TODO: day/days/...
                     .delta = 1,
                     .delta_unit = "Year", // TODO: case?
+                    .time_points = {51134, 54787},
             })
     );
 }
+
+auto get_source_dir() -> std::string {
+    std::string file(__FILE__);
+    auto last_slash = file.find_last_of('/');
+    return file.substr(0, last_slash);
+}
+
+TEST(NetCdfParser, cSAR) {
+    NetCdfParser parser(get_source_dir() + "/../data/cSAR_idiv_sm.nc");
+
+    EXPECT_EQ(parser.ebv_class(), "Community composition");
+    EXPECT_EQ(parser.ebv_name(), "Species diversity");
+    EXPECT_EQ(parser.ebv_dataset(), "cSAR idiv");
+
+    // TODO: segfault becaue file is broken
+    // EXPECT_EQ(parser.ebv_subgroups(), (std::vector<std::string>{"scenario", "metric"}));
+
+    //    // TODO: this value is broken
+//    EXPECT_EQ(parser.ebv_subgroup_descriptions(),
+//              std::vector<std::string>{"{Scenario: datasets produced under different SSP scenarios, metric:std metrics"});
+
+    EXPECT_EQ(
+            parser.ebv_subgroup_levels(),
+            (std::vector<std::vector<std::string>>{
+                    {"past_xx1.6", "past_xx2.0"},
+                    {"mean",       "max"}
+            })
+    );
+
+    EXPECT_EQ(
+            parser.ebv_entity_levels(),
+            (std::vector<std::string>{"0", "A", "F"})
+    );
+
+    EXPECT_EQ(
+            parser.time_info(),
+            (NetCdfParser::NetCdfTimeInfo{
+                    .time_start = boost::posix_time::to_time_t(boost::posix_time::ptime({1860, 1, 1}, {0, 0, 0})),
+                    .time_unit = "days", // TODO: day/days/...
+                    .delta = 10,
+                    .delta_unit = "Year", // TODO: case?
+                    .time_points = {18262, 21914, 25567, 29219, 32872, 36524, 40177, 43829, 47482, 51134, 54787, 56613},
+            })
+    );
+}
+
