@@ -59,6 +59,49 @@ auto dataset_to_string_vector(const H5::DataSet &dataSet) -> std::vector<std::st
     return strings;
 }
 
+auto attribute_to_2d_string_vector(const H5::Attribute &attribute) -> std::vector<std::vector<std::string>> {
+    const auto number_of_values = attribute.getSpace().getSimpleExtentNpoints();
+
+    fprintf(stderr, "num: %lld \n", number_of_values);
+
+    hsize_t dims_out[2];
+    int ndims = attribute.getSpace().getSimpleExtentDims( dims_out, NULL);
+    fprintf(stderr, "d1: %lu, d2: %lu \n", (unsigned long)(dims_out[0]), (unsigned long)(dims_out[1]));
+
+    /*
+    using char_vec = std::vector<char *>;
+    const std::unique_ptr<char_vec, void (*)(char_vec *)> buffer(
+            new char_vec(number_of_values),
+            // delete char pointer to avoid leaking...
+            [](char_vec *vec) {
+                for (const auto &v : *vec) {
+                    delete v;
+                }
+            }
+    );
+
+    dataSet.read((void *) buffer->data(), dataSet.getDataType());
+    */
+
+    std::vector<std::vector<std::string>> strings(number_of_values);
+
+//    for (auto i = 0; i < number_of_values; ++i) {
+//        strings[i] = (*buffer)[i];
+//    }
+
+    return strings;
+}
+
+auto dataset_to_float_vector(const H5::DataSet &dataSet) -> std::vector<float> {
+    const auto number_of_values = dataSet.getSpace().getSimpleExtentNpoints();
+
+    std::vector<float> buffer (number_of_values);
+
+    dataSet.read(static_cast<void*>(buffer.data()), dataSet.getDataType());
+
+    return buffer;
+}
+
 auto NetCdfParser::ebv_class() const -> std::string {
     const auto attribute = file.openAttribute("ebv_class");
     return attribute_to_string(attribute);
@@ -93,6 +136,9 @@ auto NetCdfParser::ebv_subgroup_descriptions() const -> std::vector<std::string>
 auto NetCdfParser::ebv_subgroup_levels() const -> std::vector<std::vector<std::string>> {
     const auto attribute = file.openAttribute("ebv_subgroups_levels");
 
+    return attribute_to_2d_string_vector(attribute);
+
+    /*
     const auto raw_values = attribute_to_string(attribute);
 
     std::vector<std::vector<std::string>> subgroup_levels = {std::vector<std::string>()};
@@ -117,6 +163,7 @@ auto NetCdfParser::ebv_subgroup_levels() const -> std::vector<std::vector<std::s
     subgroup_levels[level].push_back(subgroup_value.str()); // append last value
 
     return subgroup_levels;
+     */
 }
 
 auto NetCdfParser::ebv_entity_levels() const -> std::vector<std::string> {
@@ -135,7 +182,7 @@ auto NetCdfParser::ebv_entity_levels() const -> std::vector<std::string> {
     }
 }
 
-auto NetCdfParser::time_info(std::vector<std::string> &path_to_dataset) const -> NetCdfParser::NetCdfTimeInfo {
+auto NetCdfParser::time_info() const -> NetCdfParser::NetCdfTimeInfo {
     const auto time_field = file.openDataSet("time");
 
     const auto time_reference_raw_string = attribute_to_string(time_field.openAttribute("units"));
@@ -153,10 +200,13 @@ auto NetCdfParser::time_info(std::vector<std::string> &path_to_dataset) const ->
     const auto time_delta_string = time_delta_raw_string.substr(0, time_delta_space_position);
     const auto time_delta_unit = time_delta_raw_string.substr(time_delta_space_position + 1, time_delta_raw_string.length());
 
+    const auto time_vector = dataset_to_float_vector(time_field);
+
     return {
             .time_start = boost::posix_time::to_time_t(time_start),
             .time_unit = time_reference_unit,
             .delta = static_cast<int>(strtol(time_delta_string.c_str(), nullptr, 10)),
             .delta_unit = time_delta_unit,
+            .time_points = std::vector<double>(time_vector.cbegin(), time_vector.cend()),
     };
 }

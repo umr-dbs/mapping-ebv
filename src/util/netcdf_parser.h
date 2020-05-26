@@ -1,6 +1,6 @@
 
-#ifndef MAPPING_GFBIO_NETCDF_PARSER_H
-#define MAPPING_GFBIO_NETCDF_PARSER_H
+#ifndef MAPPING_EBV_NETCDF_PARSER_H
+#define MAPPING_EBV_NETCDF_PARSER_H
 
 
 #include <H5Cpp.h>
@@ -41,24 +41,35 @@ class NetCdfParser {
             int delta;
             std::string delta_unit;
 
+            std::vector<double> time_points;
+
             friend std::ostream &operator<<(std::ostream &os, const NetCdfTimeInfo &info) {
                 os << "time_start: " << info.time_start << " time_unit: " << info.time_unit << " delta: " << info.delta << " delta_unit: "
-                   << info.delta_unit;
+                   << info.delta_unit << " time_points: [";
+
+                std::copy (info.time_points.cbegin(), info.time_points.cend(), std::ostream_iterator<double>(os, ", "));
+                os << "\b\b]";
+
                 return os;
             }
 
             bool operator==(const NetCdfTimeInfo &rhs) const {
                 return time_start == rhs.time_start &&
                        time_unit == rhs.time_unit &&
+                       delta == rhs.delta &&
                        delta_unit == rhs.delta_unit &&
-                       delta == rhs.delta;
+                       time_points == rhs.time_points;
+            }
+
+            bool operator!=(const NetCdfTimeInfo &rhs) const {
+                return !(rhs == *this);
             }
         };
 
-        auto time_info(std::vector<std::string> &path_to_dataset) const -> NetCdfTimeInfo;
+        auto time_info() const -> NetCdfTimeInfo;
 
     private:
         H5::H5File file;
 };
 
-#endif //MAPPING_GFBIO_NETCDF_PARSER_H
+#endif //MAPPING_EBV_NETCDF_PARSER_H
