@@ -25,9 +25,6 @@ class GeoBonCatalogService : public HTTPService {
         /// Load and return all EBV classes from the catalog
         void classes() const;
 
-        /// Load and return all EBV classes from the catalog
-        void names(const std::string &ebv_class) const;
-
         /// Load and return all EBV datasets from the catalog
         void datasets(const std::string &ebv_name) const;
 
@@ -35,8 +32,15 @@ class GeoBonCatalogService : public HTTPService {
         void levels(const std::string &ebv_file) const;
 
     private:
+        struct EbvClass {
+            std::string name;
+            std::vector<std::string> ebv_names;
+
+            auto to_json() const -> Json::Value;
+        };
+
         struct Dataset {
-            uint64_t id;
+            std::string id;
             std::string name;
             std::string author;
             std::string description;
@@ -56,8 +60,6 @@ void GeoBonCatalogService::run() {
 
         if (request == "classes") {
             this->classes();
-        } else if (request == "names") {
-            this->names(params.get("ebv_class", ""));
         } else if (request == "datasets") {
             this->datasets(params.get("ebv_name", ""));
         } else if (request == "levels") {
@@ -74,22 +76,98 @@ void GeoBonCatalogService::run() {
 void GeoBonCatalogService::classes() const {
     // TODO: call `/ebv-catalog/api/v1/???`
 
-    Json::Value ebv_classes(Json::arrayValue);
-    ebv_classes.append("Community composition");
-    ebv_classes.append("Ecosystem structure");
-    ebv_classes.append("Genetic composition");
+    std::string web_service_string = R"RAWSTRING(
+    {
+        "code": 200,
+        "message": "List of EBV classes and names",
+        "data": [
+        {
+            "ebvClass": "Genetic composition",
+            "ebvName": [
+                "Co-ancestry",
+                "Allelic diversity",
+                "Population genetic differentiation",
+                "Breed and variety diversity"
+            ]
+        },
+        {
+            "ebvClass": "Species populations",
+            "ebvName": [
+                "Species distribution",
+                "Population abundance",
+                "Population structure by age/size class"
+            ]
+        },
+        {
+            "ebvClass": "Species traits",
+            "ebvName": [
+                "Phenology",
+                "Morphology",
+                "Reproduction",
+                "Physiology",
+                "Movement"
+            ]
+        },
+        {
+            "ebvClass": "Community composition",
+            "ebvName": [
+                "Taxonomic diversity",
+                "Species interactions"
+            ]
+        },
+        {
+            "ebvClass": "Ecosystem function",
+            "ebvName": [
+                "Net primary productivity",
+                "Secondary productivity",
+                "Nutrient retention",
+                "Disturbance regime"
+            ]
+        },
+        {
+            "ebvClass": "Ecosystem structure",
+            "ebvName": [
+                "Habitat structure",
+                "Ecosystem extent and fragmentation",
+                "Ecosystem composition by functional type"
+            ]
+        }]
+    }
+    )RAWSTRING";
 
-    response.sendSuccessJSON(ebv_classes);
-}
+    Json::Reader reader(Json::Features::strictMode());
+    Json::Value web_service_json;
 
-void GeoBonCatalogService::names(const std::string &ebv_class) const {
-    // TODO: call `/ebv-catalog/api/v1/???`
-    // TODO: incorporate `ebv_class`
+    if (!reader.parse(web_service_string, web_service_json)) {
+        Log::error(concat(
+                "GeoBonCatalogServiceException: Invalid web service result",
+                '\n',
+                web_service_string
+        ));
+        throw GeoBonCatalogService::GeoBonCatalogServiceException("GeoBonCatalogServiceException: Invalid web service result");
+    }
 
-    Json::Value ebv_names(Json::arrayValue);
-    ebv_names.append("Population genetic differentiation");
+    Json::Value datasets(Json::arrayValue);
+    for (const auto &dataset : web_service_json["data"]) {
+        std::vector<std::string> ebv_names;
 
-    response.sendSuccessJSON(ebv_names);
+        const auto ebv_names_json = dataset.get("ebvName", Json::Value(Json::arrayValue));
+
+        ebv_names.reserve(ebv_names.size());
+        for (const auto &ebvName : ebv_names_json) {
+            ebv_names.push_back(ebvName.asString());
+        }
+
+        datasets.append(GeoBonCatalogService::EbvClass{
+                .name = dataset.get("ebvClass", "").asString(),
+                .ebv_names = ebv_names,
+        }.to_json());
+    }
+
+    Json::Value result(Json::objectValue);
+    result["classes"] = datasets;
+
+    response.sendSuccessJSON(result);
 }
 
 void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
@@ -213,17 +291,17 @@ void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
 
     if (!reader.parse(web_service_string, web_service_json)) {
         Log::error(concat(
-                "OpenIdConnectService: JSON Web Key Set is invalid (malformed JSON)",
+                "GeoBonCatalogServiceException: Invalid web service result",
                 '\n',
                 web_service_string
         ));
-        throw GeoBonCatalogService::GeoBonCatalogServiceException("OpenIdConnectService: JSON Web Key Set is invalid (malformed JSON)");
+        throw GeoBonCatalogService::GeoBonCatalogServiceException("GeoBonCatalogServiceException: Invalid web service result");
     }
 
     Json::Value datasets(Json::arrayValue);
     for (const auto &dataset : web_service_json["data"]) {
         datasets.append(GeoBonCatalogService::Dataset{
-                .id = dataset.get("id", 0).asUInt64(),
+                .id = dataset.get("id", "").asString(),
                 .name = dataset.get("name", "").asString(),
                 .author = dataset.get("author", "").asString(),
                 .description = dataset.get("abstract", "").asString(),
@@ -232,13 +310,16 @@ void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
         }.to_json());
     }
 
-    response.sendSuccessJSON(datasets);
+    Json::Value result(Json::objectValue);
+    result["datasets"] = datasets;
+
+    response.sendSuccessJSON(result);
 }
 
 void GeoBonCatalogService::levels(const std::string &ebv_file) const {
     // TODO: incorporate EBV path
 
-    NetCdfParser net_cdf_parser (ebv_file);
+    NetCdfParser net_cdf_parser(ebv_file);
 
     Json::Value levels(Json::arrayValue);
     for (const auto &subgroup : net_cdf_parser.ebv_subgroups()) {
@@ -256,5 +337,18 @@ auto GeoBonCatalogService::Dataset::to_json() const -> Json::Value {
     json["description"] = this->description;
     json["license"] = this->license;
     json["dataset_path"] = this->dataset_path;
+    return json;
+}
+
+auto GeoBonCatalogService::EbvClass::to_json() const -> Json::Value {
+    Json::Value ebv_names_json(Json::arrayValue);
+    for (const auto &ebv_name : this->ebv_names) {
+        ebv_names_json.append(ebv_name);
+    }
+
+    Json::Value json(Json::objectValue);
+    json["name"] = this->name;
+    json["ebv_names"] = ebv_names_json;
+
     return json;
 }

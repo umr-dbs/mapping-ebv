@@ -1,5 +1,4 @@
 #include <memory>
-#include <sstream>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "netcdf_parser.h"
 
@@ -59,39 +58,6 @@ auto dataset_to_string_vector(const H5::DataSet &dataSet) -> std::vector<std::st
     return strings;
 }
 
-auto attribute_to_2d_string_vector(const H5::Attribute &attribute) -> std::vector<std::vector<std::string>> {
-    const auto number_of_values = attribute.getSpace().getSimpleExtentNpoints();
-
-    fprintf(stderr, "num: %lld \n", number_of_values);
-
-    hsize_t dims_out[2];
-    int ndims = attribute.getSpace().getSimpleExtentDims( dims_out, NULL);
-    fprintf(stderr, "d1: %lu, d2: %lu \n", (unsigned long)(dims_out[0]), (unsigned long)(dims_out[1]));
-
-    /*
-    using char_vec = std::vector<char *>;
-    const std::unique_ptr<char_vec, void (*)(char_vec *)> buffer(
-            new char_vec(number_of_values),
-            // delete char pointer to avoid leaking...
-            [](char_vec *vec) {
-                for (const auto &v : *vec) {
-                    delete v;
-                }
-            }
-    );
-
-    dataSet.read((void *) buffer->data(), dataSet.getDataType());
-    */
-
-    std::vector<std::vector<std::string>> strings(number_of_values);
-
-//    for (auto i = 0; i < number_of_values; ++i) {
-//        strings[i] = (*buffer)[i];
-//    }
-
-    return strings;
-}
-
 auto dataset_to_float_vector(const H5::DataSet &dataSet) -> std::vector<float> {
     const auto number_of_values = dataSet.getSpace().getSimpleExtentNpoints();
 
@@ -136,7 +102,7 @@ auto NetCdfParser::ebv_subgroup_descriptions() const -> std::vector<std::string>
 auto NetCdfParser::ebv_subgroup_levels() const -> std::vector<std::vector<std::string>> {
     const auto attribute = file.openAttribute("ebv_subgroups_levels");
 
-    return attribute_to_2d_string_vector(attribute);
+    return {};
 
     /*
     const auto raw_values = attribute_to_string(attribute);
