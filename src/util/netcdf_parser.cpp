@@ -1,5 +1,6 @@
 #include <memory>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <util/concat.h>
 #include "netcdf_parser.h"
 
 auto attribute_to_string(const H5::Attribute &attribute) -> std::string {
@@ -61,9 +62,9 @@ auto dataset_to_string_vector(const H5::DataSet &dataSet) -> std::vector<std::st
 auto dataset_to_float_vector(const H5::DataSet &dataSet) -> std::vector<float> {
     const auto number_of_values = dataSet.getSpace().getSimpleExtentNpoints();
 
-    std::vector<float> buffer (number_of_values);
+    std::vector<float> buffer(number_of_values);
 
-    dataSet.read(static_cast<void*>(buffer.data()), dataSet.getDataType());
+    dataSet.read(static_cast<void *>(buffer.data()), dataSet.getDataType());
 
     return buffer;
 }
@@ -92,60 +93,60 @@ auto NetCdfParser::ebv_subgroups() const -> std::vector<std::string> {
 auto NetCdfParser::ebv_subgroup_descriptions() const -> std::vector<std::string> {
     const auto attribute = file.openAttribute("ebv_subgroups_desc");
 
-    // TODO: CSV?
-    return {attribute_to_string(attribute)};
+    return attribute_to_string_vector(attribute);
 }
 
 /// Parses ebv subgroup levels
 ///
 /// Assumes that the attribute is non-empty
-auto NetCdfParser::ebv_subgroup_levels() const -> std::vector<std::vector<std::string>> {
-    const auto attribute = file.openAttribute("ebv_subgroups_levels");
+auto
+NetCdfParser::ebv_subgroup_values(const std::string &subgroup_name,
+                                  const std::vector<std::string> &path) const -> std::vector<NetCdfValue> {
+    const auto attribute = file.openAttribute(concat("ebv_var_", subgroup_name));
 
-    return {};
+    std::vector<std::string> values;
+    if (subgroup_name == "entity") { // special treatment for entities
+        if (path.empty()) throw NetCdfParserException("NetCdfParserException: Empty subgroup path");
 
-    /*
-    const auto raw_values = attribute_to_string(attribute);
+        const auto pointer_to_variable = attribute_to_string(attribute);
+        const auto dataset = file.openDataSet(pointer_to_variable);
 
-    std::vector<std::vector<std::string>> subgroup_levels = {std::vector<std::string>()};
-    auto level = 0;
-
-    std::stringstream subgroup_value;
-    for (const auto &c : raw_values) {
-        if (c == ';') {
-            subgroup_levels[level].push_back(subgroup_value.str());
-            subgroup_value.str("");
-
-            // new vector
-            subgroup_levels.emplace_back();
-            level += 1;
-        } else if (c == ',') {
-            subgroup_levels[level].push_back(subgroup_value.str());
-            subgroup_value.str("");
-        } else {
-            subgroup_value << c;
-        }
-    }
-    subgroup_levels[level].push_back(subgroup_value.str()); // append last value
-
-    return subgroup_levels;
-     */
-}
-
-auto NetCdfParser::ebv_entity_levels() const -> std::vector<std::string> {
-    const auto attribute = file.openAttribute("ebv_entity_levels");
-
-    const auto attribute_value = attribute_to_string(attribute);
-
-    std::vector<std::string> strings;
-    if (attribute_value == "var_entities") {
-        const auto dataset = file.openDataSet("var_entities");
-
-        return dataset_to_string_vector(dataset);
+        values = dataset_to_string_vector(dataset);
     } else {
-        // TODO: is this case possible?
-        return {};
+        values = attribute_to_string_vector(attribute);
     }
+
+    std::vector<NetCdfValue> result;
+    result.reserve(values.size());
+
+    // open groups from `path`
+    H5::Group group = file.openGroup("/"); // open root group
+    for (const auto &group_name : path) {
+        group = group.openGroup(group_name);
+    }
+
+    for (const auto &value : values) {
+        std::string label;
+        std::string description;
+
+        if (subgroup_name == "entity") { // special treatment for entities
+            const auto dataset = group.openDataSet(value);
+            label = attribute_to_string(dataset.openAttribute("label"));
+            description = attribute_to_string(dataset.openAttribute("description"));
+        } else {
+            const auto subgroup = group.openGroup(value);
+            label = attribute_to_string(subgroup.openAttribute("label"));
+            description = attribute_to_string(subgroup.openAttribute("description"));
+        }
+
+        result.push_back(NetCdfValue{
+                .name = value,
+                .label = label,
+                .description = description
+        });
+    }
+
+    return result;
 }
 
 auto NetCdfParser::time_info() const -> NetCdfParser::NetCdfTimeInfo {
@@ -175,4 +176,27 @@ auto NetCdfParser::time_info() const -> NetCdfParser::NetCdfTimeInfo {
             .delta_unit = time_delta_unit,
             .time_points = std::vector<double>(time_vector.cbegin(), time_vector.cend()),
     };
+}
+
+bool NetCdfParser::NetCdfValue::operator==(const NetCdfParser::NetCdfValue &rhs) const {
+    return name == rhs.name &&
+           label == rhs.label &&
+           description == rhs.description;
+}
+
+bool NetCdfParser::NetCdfValue::operator!=(const NetCdfParser::NetCdfValue &rhs) const {
+    return !(rhs == *this);
+}
+
+auto NetCdfParser::NetCdfValue::to_json() const -> Json::Value {
+    Json::Value json(Json::objectValue);
+    json["name"] = this->name;
+    json["label"] = this->label;
+    json["description"] = this->description;
+    return json;
+}
+
+std::ostream &operator<<(std::ostream &os, const NetCdfParser::NetCdfValue &value) {
+    os << "name: " << value.name << " label: " << value.label << " description: " << value.description;
+    return os;
 }

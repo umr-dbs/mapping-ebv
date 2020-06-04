@@ -8,16 +8,29 @@
 #include <vector>
 #include <ostream>
 #include <iterator>
+#include <json/json.h>
 
 class NetCdfParser {
     public:
-        explicit NetCdfParser(const std::string &path) : file(H5::H5File(path, H5F_ACC_RDONLY)) {}
+        struct NetCdfValue {
+            bool operator==(const NetCdfValue &rhs) const;
 
-        // {"Conventions", "units", "creator", "description", "title", "ebv_class",
-        //                                                                  "ebv_name", "ebv_dataset", "ebv_entity_levels", "EML", "_NCProperties",
-        //                                                                  "ebv_subgroups", "ebv_subgroups_desc", "ebv_subgroups_levels",
-        //                                                                  "ebv_subgroups_levels_desc", "ebv_entity_desc", "history",
-        //                                                                  "ebv_entity_levels_desc"};
+            bool operator!=(const NetCdfValue &rhs) const;
+
+            friend std::ostream &operator<<(std::ostream &os, const NetCdfValue &value);
+
+            auto to_json() const -> Json::Value;
+
+            std::string name;
+            std::string label;
+            std::string description;
+        };
+
+        struct NetCdfParserException : public std::runtime_error {
+            using std::runtime_error::runtime_error;
+        };
+
+        explicit NetCdfParser(const std::string &path) : file(H5::H5File(path, H5F_ACC_RDONLY)) {}
 
         auto ebv_class() const -> std::string;
 
@@ -29,11 +42,7 @@ class NetCdfParser {
 
         auto ebv_subgroup_descriptions() const -> std::vector<std::string>;
 
-        auto ebv_subgroup_levels() const -> std::vector<std::vector<std::string>>;
-
-        // TODO: ebv_subgroups_levels_desc
-
-        auto ebv_entity_levels() const -> std::vector<std::string>;
+        auto ebv_subgroup_values(const std::string &subgroup_name, const std::vector<std::string> &path) const -> std::vector<NetCdfValue>;
 
         struct NetCdfTimeInfo {
             time_t time_start;
