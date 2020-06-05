@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <util/log.h>
 #include <util/netcdf_parser.h>
+#include <util/stringsplit.h>
+#include <boost/date_time/posix_time/conversion.hpp>
 
 /// This class provides methods for user authentication with OpenId Connect
 class GeoBonCatalogService : public HTTPService {
@@ -28,8 +30,15 @@ class GeoBonCatalogService : public HTTPService {
         /// Load and return all EBV datasets from the catalog
         void datasets(const std::string &ebv_name) const;
 
-        /// Extract and return EBV dataset levels
-        void levels(const std::string &ebv_file) const;
+        /// Extract and return EBV dataset subgroups
+        void subgroups(const std::string &ebv_file) const;
+
+        /// Extract and return EBV subgroup values
+        void
+        subgroup_values(const std::string &ebv_file, const std::string &ebv_subgroup, const std::vector<std::string> &ebv_group_path) const;
+
+        /// Extract and return the EBV time dimension
+        void time_dimension(const std::string &ebv_file) const;
 
     private:
         struct EbvClass {
@@ -62,8 +71,14 @@ void GeoBonCatalogService::run() {
             this->classes();
         } else if (request == "datasets") {
             this->datasets(params.get("ebv_name", ""));
-        } else if (request == "levels") {
-            this->levels(params.get("ebv_path", ""));
+        } else if (request == "subgroups") {
+            this->subgroups(params.get("ebv_path", ""));
+        } else if (request == "subgroup_values") {
+            this->subgroup_values(params.get("ebv_path", ""),
+                                  params.get("ebv_subgroup", ""),
+                                  split(params.get("ebv_group_path"), '/'));
+        } else if (request == "time_points") {
+            this->time_dimension(params.get("ebv_path", ""));
         } else { // FALLBACK
             response.sendFailureJSON("GeoBonCatalogService: Invalid request");
         }
@@ -194,7 +209,7 @@ void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
             "temporalResolution": "Yearly",
             "taxonomicCoverage": null,
             "License": "CC BY",
-            "pathNameDataset": "../../../dataset-uploads/1/cSAR-idiv_sb.nc",
+            "pathNameDataset": "cSAR_idiv_004.nc",
             "pathNameMetadata": "../../../dataset-uploads/1/metadata.xml",
             "abstract": "Changes in average local terrestrial diversity for each grid cell caused by land-use, land-use intensity, and human population density, estimated by the PREDICTS model (Purvis et al., 2018). It reports number of species in each cell relative to a pristine baseline (percentage) and changes in species number (percentage) relative to 1900. Uses the LUH 2.0 projections for land-use and the PREDICTS database with 767 studies from over 32 000 sites on over 51 000 species from all taxa.",
             "contactDetails":
@@ -220,7 +235,7 @@ void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
             "temporalResolution": "Yearly",
             "taxonomicCoverage": "Plants",
             "License": "Creative Commons Attribution 4.0 International License",
-            "pathNameDataset": "../../../dataset-uploads/3/cSAR-idiv_sb.nc",
+            "pathNameDataset": "cSAR_idiv_004.nc",
             "pathNameMetadata": "../../../dataset-uploads/3/metadata.xml",
             "abstract": "Data in this layer were generated using multispectral satellite imagery from the Landsat 7 thematic mapper plus (ETM+) sensor. The clear surface observations from over 600,000 images were analyzed using Google Earth Engine, a cloud platform for earth observation and data analysis, to determine per pixel tree cover using a supervised learning algorithm.",
             "contactDetails":
@@ -246,7 +261,7 @@ void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
             "temporalResolution": "Weekly",
             "taxonomicCoverage": null,
             "License": "CC BY-ND",
-            "pathNameDataset": "../../../dataset-uploads/9/cSAR-idiv_sb.nc",
+            "pathNameDataset": "cSAR_idiv_004.nc",
             "pathNameMetadata": "../../../dataset-uploads/9/metadata.xml",
             "abstract": "test description.\r\n\r\nCras justo odio, dapibus ac facilisis in, egestas eget quam. Nulla vitae elit libero, a pharetra augue. Maecenas faucibus mollis interdum. Donec sed odio dui. Aenean lacinia bibendum nulla sed consectetur. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Nullam quis risus eget urna mollis ornare vel eu leo.",
             "contactDetails":
@@ -272,7 +287,7 @@ void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
             "temporalResolution": "Yearly",
             "taxonomicCoverage": "Amphibians",
             "License": "CC BY-SA",
-            "pathNameDataset": "../../../dataset-uploads/31/cSAR-idiv_sb.nc",
+            "pathNameDataset": "cSAR_idiv_004.nc",
             "pathNameMetadata": "../../../dataset-uploads/31/metadata.xml",
             "abstract": "hgghghghghghghghghghghghhg",
             "contactDetails":
@@ -306,7 +321,10 @@ void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
                 .author = dataset.get("author", "").asString(),
                 .description = dataset.get("abstract", "").asString(),
                 .license = dataset.get("License", "").asString(),
-                .dataset_path = dataset.get("pathNameDataset", "").asString(),
+                .dataset_path = concat(
+                        Configuration::get<std::string>("ebv.path"),
+                        dataset.get("pathNameDataset", "").asString()
+                ),
         }.to_json());
     }
 
@@ -316,17 +334,65 @@ void GeoBonCatalogService::datasets(const std::string &ebv_name) const {
     response.sendSuccessJSON(result);
 }
 
-void GeoBonCatalogService::levels(const std::string &ebv_file) const {
-    // TODO: incorporate EBV path
-
+void GeoBonCatalogService::subgroups(const std::string &ebv_file) const {
     NetCdfParser net_cdf_parser(ebv_file);
 
-    Json::Value levels(Json::arrayValue);
-    for (const auto &subgroup : net_cdf_parser.ebv_subgroups()) {
-        levels.append(subgroup);
+    const auto subgroup_names = net_cdf_parser.ebv_subgroups();
+    const auto subgroup_descriptions = net_cdf_parser.ebv_subgroup_descriptions();
+
+    Json::Value subgroups_json(Json::arrayValue);
+    for (size_t i = 0; i < subgroup_names.size(); ++i) {
+        Json::Value subgroup_json(Json::objectValue);
+        subgroup_json["name"] = subgroup_names[i];
+        subgroup_json["description"] = subgroup_descriptions[i];
+        subgroups_json.append(subgroup_json);
     }
 
-    response.sendSuccessJSON(levels);
+    Json::Value result(Json::objectValue);
+    result["subgroups"] = subgroups_json;
+
+    response.sendSuccessJSON(result);
+}
+
+void GeoBonCatalogService::subgroup_values(const std::string &ebv_file,
+                                           const std::string &ebv_subgroup,
+                                           const std::vector<std::string> &ebv_group_path) const {
+    NetCdfParser net_cdf_parser(ebv_file);
+
+    Json::Value values(Json::arrayValue);
+    for (const auto &subgroup : net_cdf_parser.ebv_subgroup_values(ebv_subgroup, ebv_group_path)) {
+        values.append(subgroup.to_json());
+    }
+
+    Json::Value result(Json::objectValue);
+    result["values"] = values;
+
+    response.sendSuccessJSON(result);
+}
+
+void GeoBonCatalogService::time_dimension(const std::string &ebv_file) const {
+    NetCdfParser net_cdf_parser(ebv_file);
+    const auto time_info = net_cdf_parser.time_info();
+
+    Json::Value time_points(Json::arrayValue);
+
+    if (time_info.time_unit == "days") {
+        const auto seconds_per_day = 24 * 60 * 60;
+
+        for (const double time_point_raw : time_info.time_points) {
+            const double time_point = time_info.time_start + time_point_raw * seconds_per_day;
+            time_points.append(time_point);
+        }
+    } else {
+        // TODO: boost calendar additions
+        const boost::posix_time::ptime time_start = boost::posix_time::from_time_t(time_info.time_start);
+    }
+
+    Json::Value result(Json::objectValue);
+    result["time_points"] = time_points;
+    result["delta_unit"] = time_info.delta_unit;
+
+    response.sendSuccessJSON(result);
 }
 
 auto GeoBonCatalogService::Dataset::to_json() const -> Json::Value {

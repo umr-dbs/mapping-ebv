@@ -155,7 +155,11 @@ auto NetCdfParser::time_info() const -> NetCdfParser::NetCdfTimeInfo {
     const auto time_reference_raw_string = attribute_to_string(time_field.openAttribute("units"));
 
     const auto time_reference_split_position = time_reference_raw_string.find(" since ");
-    const auto time_reference_unit = time_reference_raw_string.substr(0, time_reference_split_position);
+
+    auto time_reference_unit = time_reference_raw_string.substr(0, time_reference_split_position);
+    std::transform(time_reference_unit.begin(), time_reference_unit.end(), time_reference_unit.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+
     const auto time_reference_string = time_reference_raw_string.substr(time_reference_split_position + sizeof(" since ") - 1,
                                                                         time_reference_raw_string.length());
 
@@ -165,7 +169,9 @@ auto NetCdfParser::time_info() const -> NetCdfParser::NetCdfTimeInfo {
 
     const auto time_delta_space_position = time_delta_raw_string.find(' ');
     const auto time_delta_string = time_delta_raw_string.substr(0, time_delta_space_position);
-    const auto time_delta_unit = time_delta_raw_string.substr(time_delta_space_position + 1, time_delta_raw_string.length());
+    auto time_delta_unit = time_delta_raw_string.substr(time_delta_space_position + 1, time_delta_raw_string.length());
+    std::transform(time_delta_unit.begin(), time_delta_unit.end(), time_delta_unit.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
 
     const auto time_vector = dataset_to_float_vector(time_field);
 

@@ -71,9 +71,9 @@ TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
             parser.time_info(),
             (NetCdfParser::NetCdfTimeInfo{
                     .time_start = boost::posix_time::to_time_t(boost::posix_time::ptime({1860, 1, 1}, {0, 0, 0})),
-                    .time_unit = "days", // TODO: day/days/...
+                    .time_unit = "days",
                     .delta = 10,
-                    .delta_unit = "Years", // TODO: case?
+                    .delta_unit = "years",
                     .time_points = {18262, 21914, 25567, 29219, 32872, 36524, 40177, 43829, 47482, 51134, 54787, 56613},
             })
     );
