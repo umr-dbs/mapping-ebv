@@ -3,7 +3,7 @@
 #include <H5Cpp.h>
 #include "util.h"
 
-TEST(NetCdfParser, MultiDimStringVariable) {
+TEST(NetCdfParser, MultiDimStringVariable) { // NOLINT(cert-err58-cpp)
     auto file = H5::H5File(test_util::get_data_dir() + "test.nc", H5F_ACC_RDONLY);
 
     auto variable = file.openDataSet("bar");

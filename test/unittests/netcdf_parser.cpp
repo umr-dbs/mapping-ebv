@@ -1,7 +1,5 @@
 #include <gtest/gtest.h>
 #include <util/netcdf_parser.h>
-#include <boost/date_time/posix_time/ptime.hpp>
-#include <boost/date_time/posix_time/conversion.hpp>
 #include <util/timeparser.h>
 #include "util.h"
 
