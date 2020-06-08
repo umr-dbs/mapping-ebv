@@ -2,6 +2,7 @@
 #include <util/netcdf_parser.h>
 #include <boost/date_time/posix_time/ptime.hpp>
 #include <boost/date_time/posix_time/conversion.hpp>
+#include <util/timeparser.h>
 #include "util.h"
 
 TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
@@ -70,7 +71,7 @@ TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
     EXPECT_EQ(
             parser.time_info(),
             (NetCdfParser::NetCdfTimeInfo{
-                    .time_start = boost::posix_time::to_time_t(boost::posix_time::ptime({1860, 1, 1}, {0, 0, 0})),
+                    .time_start = TimeParser::createCustom("%Y-%m-%d")->parse("1860-01-01"),
                     .time_unit = "days",
                     .delta = 10,
                     .delta_unit = "years",

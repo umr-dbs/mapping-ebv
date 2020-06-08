@@ -1,6 +1,7 @@
 #include <memory>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <util/concat.h>
+#include <util/timeparser.h>
 #include "netcdf_parser.h"
 
 auto attribute_to_string(const H5::Attribute &attribute) -> std::string {
@@ -163,7 +164,7 @@ auto NetCdfParser::time_info() const -> NetCdfParser::NetCdfTimeInfo {
     const auto time_reference_string = time_reference_raw_string.substr(time_reference_split_position + sizeof(" since ") - 1,
                                                                         time_reference_raw_string.length());
 
-    const auto time_start = boost::posix_time::time_from_string(time_reference_string);
+    const auto time_start = TimeParser::createCustom("%Y-%m-%d  %H:%M:%S")->parse(time_reference_string);
 
     const auto time_delta_raw_string = attribute_to_string(time_field.openAttribute("t_delta"));
 
@@ -176,7 +177,7 @@ auto NetCdfParser::time_info() const -> NetCdfParser::NetCdfTimeInfo {
     const auto time_vector = dataset_to_float_vector(time_field);
 
     return {
-            .time_start = boost::posix_time::to_time_t(time_start),
+            .time_start = time_start,
             .time_unit = time_reference_unit,
             .delta = static_cast<int>(strtol(time_delta_string.c_str(), nullptr, 10)),
             .delta_unit = time_delta_unit,

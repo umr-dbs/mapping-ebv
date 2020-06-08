@@ -45,7 +45,7 @@ class NetCdfParser {
         auto ebv_subgroup_values(const std::string &subgroup_name, const std::vector<std::string> &path) const -> std::vector<NetCdfValue>;
 
         struct NetCdfTimeInfo {
-            time_t time_start;
+            double time_start;
             std::string time_unit;
 
             int delta;
