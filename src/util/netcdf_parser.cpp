@@ -1,7 +1,8 @@
 #include <memory>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <util/concat.h>
 #include <util/timeparser.h>
+#include <algorithm>
+#include <util/log.h>
 #include "netcdf_parser.h"
 
 auto attribute_to_string(const H5::Attribute &attribute) -> std::string {
@@ -107,8 +108,6 @@ NetCdfParser::ebv_subgroup_values(const std::string &subgroup_name,
 
     std::vector<std::string> values;
     if (subgroup_name == "entity") { // special treatment for entities
-        if (path.empty()) throw NetCdfParserException("NetCdfParserException: Empty subgroup path");
-
         const auto pointer_to_variable = attribute_to_string(attribute);
         const auto dataset = file.openDataSet(pointer_to_variable);
 
@@ -127,24 +126,29 @@ NetCdfParser::ebv_subgroup_values(const std::string &subgroup_name,
     }
 
     for (const auto &value : values) {
-        std::string label;
-        std::string description;
+        try {
+            std::string label;
+            std::string description;
 
-        if (subgroup_name == "entity") { // special treatment for entities
-            const auto dataset = group.openDataSet(value);
-            label = attribute_to_string(dataset.openAttribute("label"));
-            description = attribute_to_string(dataset.openAttribute("description"));
-        } else {
-            const auto subgroup = group.openGroup(value);
-            label = attribute_to_string(subgroup.openAttribute("label"));
-            description = attribute_to_string(subgroup.openAttribute("description"));
+            if (subgroup_name == "entity") { // special treatment for entities
+                const auto dataset = group.openDataSet(value);
+                label = attribute_to_string(dataset.openAttribute("label"));
+                description = attribute_to_string(dataset.openAttribute("description"));
+            } else {
+                const auto subgroup = group.openGroup(value);
+                label = attribute_to_string(subgroup.openAttribute("label"));
+                description = attribute_to_string(subgroup.openAttribute("description"));
+            }
+
+            result.push_back(NetCdfValue{
+                    .name = value,
+                    .label = label,
+                    .description = description
+            });
+        } catch (const H5::Exception &e) {
+            Log::debug("Unable to open group or dataset `%s` in file `%s` (%s)",
+                       value.c_str(), file.getFileName().c_str(), e.getDetailMsg().c_str());
         }
-
-        result.push_back(NetCdfValue{
-                .name = value,
-                .label = label,
-                .description = description
-        });
     }
 
     return result;
