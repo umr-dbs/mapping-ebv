@@ -36,7 +36,7 @@ include(DownloadProject)
 
 find_package(Boost COMPONENTS thread system date_time REQUIRED)
 
-set(HDF5_USE_STATIC_LIBRARIES ON)
+set(HDF5_USE_STATIC_LIBRARIES OFF) # important to not interfere with GDAL
 find_package(HDF5 COMPONENTS CXX REQUIRED)
 
 if (NOT is_mapping_module)
