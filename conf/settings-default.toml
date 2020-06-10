@@ -1,3 +1,4 @@
 
 [ebv]
 path="." # Path to NetCDFs
+webservice_endpoint = "https://portal.geobon.org/api/v1/"

@@ -98,6 +98,15 @@ auto NetCdfParser::ebv_subgroup_descriptions() const -> std::vector<std::string>
     return attribute_to_string_vector(attribute);
 }
 
+template <class T>
+auto read_attribute_optionally(const T &group, const std::string &field, const std::string &default_value) -> std::string {
+    if (group.attrExists(field)) {
+        return attribute_to_string(group.openAttribute(field));
+    } else {
+        return default_value;
+    }
+}
+
 /// Parses ebv subgroup levels
 ///
 /// Assumes that the attribute is non-empty
@@ -132,12 +141,14 @@ NetCdfParser::ebv_subgroup_values(const std::string &subgroup_name,
 
             if (subgroup_name == "entity") { // special treatment for entities
                 const auto dataset = group.openDataSet(value);
-                label = attribute_to_string(dataset.openAttribute("label"));
-                description = attribute_to_string(dataset.openAttribute("description"));
+
+                label = read_attribute_optionally(dataset, "label", value);
+                description = read_attribute_optionally(dataset, "description", "");
             } else {
                 const auto subgroup = group.openGroup(value);
-                label = attribute_to_string(subgroup.openAttribute("label"));
-                description = attribute_to_string(subgroup.openAttribute("description"));
+
+                label = read_attribute_optionally(subgroup, "label", value);
+                description = read_attribute_optionally(subgroup, "description", "");
             }
 
             result.push_back(NetCdfValue{

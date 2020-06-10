@@ -65,6 +65,10 @@ class GeoBonCatalogService : public HTTPService {
         static auto hasUserPermissions(UserDB::User &user, const std::string &ebv_file) -> bool;
 
         static void addUserPermissions(UserDB::User &user, const std::string &ebv_file);
+
+        static auto requestJsonFromUrl(const std::string &url) -> Json::Value;
+
+        static auto combinePaths(const std::string &first, const std::string &second) -> std::string;
 };
 
 REGISTER_HTTP_SERVICE(GeoBonCatalogService, "geo_bon_catalog"); // NOLINT(cert-err58-cpp)
@@ -99,78 +103,10 @@ void GeoBonCatalogService::run() {
 }
 
 void GeoBonCatalogService::classes() const {
-    // TODO: call `/ebv-catalog/api/v1/???`
-
-    std::string web_service_string = R"RAWSTRING(
-    {
-        "code": 200,
-        "message": "List of EBV classes and names",
-        "data": [
-        {
-            "ebvClass": "Genetic composition",
-            "ebvName": [
-                "Co-ancestry",
-                "Allelic diversity",
-                "Population genetic differentiation",
-                "Breed and variety diversity"
-            ]
-        },
-        {
-            "ebvClass": "Species populations",
-            "ebvName": [
-                "Species distribution",
-                "Population abundance",
-                "Population structure by age/size class"
-            ]
-        },
-        {
-            "ebvClass": "Species traits",
-            "ebvName": [
-                "Phenology",
-                "Morphology",
-                "Reproduction",
-                "Physiology",
-                "Movement"
-            ]
-        },
-        {
-            "ebvClass": "Community composition",
-            "ebvName": [
-                "Taxonomic diversity",
-                "Species interactions"
-            ]
-        },
-        {
-            "ebvClass": "Ecosystem function",
-            "ebvName": [
-                "Net primary productivity",
-                "Secondary productivity",
-                "Nutrient retention",
-                "Disturbance regime"
-            ]
-        },
-        {
-            "ebvClass": "Ecosystem structure",
-            "ebvName": [
-                "Habitat structure",
-                "Ecosystem extent and fragmentation",
-                "Ecosystem composition by functional type"
-            ]
-        }]
-    }
-    )RAWSTRING";
-
-    Json::Reader reader(Json::Features::strictMode());
-    Json::Value web_service_json;
-
-    if (!reader.parse(web_service_string, web_service_json)) {
-        Log::error(concat(
-                "GeoBonCatalogServiceException: Invalid web service result",
-                '\n',
-                web_service_string
-        ));
-        throw GeoBonCatalogService::GeoBonCatalogServiceException("GeoBonCatalogServiceException: Invalid web service result");
-    }
+    const auto web_service_json = requestJsonFromUrl(combinePaths(
+            Configuration::get<std::string>("ebv.webservice_endpoint"),
+            "ebv"
+    ));
 
     Json::Value datasets(Json::arrayValue);
     for (const auto &dataset : web_service_json["data"]) {
@@ -196,136 +132,20 @@ void GeoBonCatalogService::classes() const {
 }
 
 void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_name) const {
-    // TODO: call `/ebv-catalog/api/v1/datasets/list`
-    // TODO: incorporate `ebv_name`
-
-    std::string web_service_string = R"RAWSTRING(
-    {
-        "code": 200,
-        "message": "List of all datasets",
-        "data": [
-        {
-            "id": "1",
-            "name": "Changes in local terrestrial diversity (PREDICTS)",
-            "author": "PREDICTS",
-            "publicationDate": "2020",
-            "technicalStatus": "Finish and with constant technical support",
-            "ebv":
-            {
-                "ebvClass": "Community composition",
-                "ebvName": "Population genetic differentiation"
-            },
-            "spatialCoverage": "Global",
-            "temporalResolution": "Yearly",
-            "taxonomicCoverage": null,
-            "License": "CC BY",
-            "pathNameDataset": "cSAR_idiv_004.nc",
-            "pathNameMetadata": "../../../dataset-uploads/1/metadata.xml",
-            "abstract": "Changes in average local terrestrial diversity for each grid cell caused by land-use, land-use intensity, and human population density, estimated by the PREDICTS model (Purvis et al., 2018). It reports number of species in each cell relative to a pristine baseline (percentage) and changes in species number (percentage) relative to 1900. Uses the LUH 2.0 projections for land-use and the PREDICTS database with 767 studies from over 32 000 sites on over 51 000 species from all taxa.",
-            "contactDetails":
-            {
-                "contactPerson": "Andy Purvis",
-                "contactInstitute": "PREDICTS",
-                "contactEmail": "andy.purvis@nhm.ac.uk"
-            },
-            "keywords": "machine learning,remote sensing"
-        },
-        {
-            "id": "3",
-            "name": "Forest cover",
-            "author": "Matthew Hansen",
-            "publicationDate": "2018",
-            "technicalStatus": "Finish and with constant technical support",
-            "ebv":
-            {
-                "ebvClass": "Ecosystem structure",
-                "ebvName": "Population genetic differentiation"
-            },
-            "spatialCoverage": "Global",
-            "temporalResolution": "Yearly",
-            "taxonomicCoverage": "Plants",
-            "License": "Creative Commons Attribution 4.0 International License",
-            "pathNameDataset": "cSAR_idiv_004.nc",
-            "pathNameMetadata": "../../../dataset-uploads/3/metadata.xml",
-            "abstract": "Data in this layer were generated using multispectral satellite imagery from the Landsat 7 thematic mapper plus (ETM+) sensor. The clear surface observations from over 600,000 images were analyzed using Google Earth Engine, a cloud platform for earth observation and data analysis, to determine per pixel tree cover using a supervised learning algorithm.",
-            "contactDetails":
-            {
-                "contactPerson": "Matthew Hansen",
-                "contactInstitute": "University of Maryland, Department of Geographical Sciences",
-                "contactEmail": "mhansen@umd.edu"
-            },
-            "keywords": "Big data"
-        },
-        {
-            "id": "9",
-            "name": "Test EBV christian",
-            "author": "University of Amsterdam",
-            "publicationDate": "2020",
-            "technicalStatus": "In development",
-            "ebv":
-            {
-                "ebvClass": "Ecosystem structure",
-                "ebvName": "Population genetic differentiation"
-            },
-            "spatialCoverage": "Global",
-            "temporalResolution": "Weekly",
-            "taxonomicCoverage": null,
-            "License": "CC BY-ND",
-            "pathNameDataset": "cSAR_idiv_004.nc",
-            "pathNameMetadata": "../../../dataset-uploads/9/metadata.xml",
-            "abstract": "test description.\r\n\r\nCras justo odio, dapibus ac facilisis in, egestas eget quam. Nulla vitae elit libero, a pharetra augue. Maecenas faucibus mollis interdum. Donec sed odio dui. Aenean lacinia bibendum nulla sed consectetur. Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Nullam quis risus eget urna mollis ornare vel eu leo.",
-            "contactDetails":
-            {
-                "contactPerson": "Andy Purvis",
-                "contactInstitute": "German Centre for Integrative Biodiversity Research (iDiv)",
-                "contactEmail": "andy.purvis@nhm.ac.uk"
-            },
-            "keywords": "machine learning,test example,forest,birds"
-        },
-        {
-            "id": "31",
-            "name": "ereererererr",
-            "author": "Aaike De Wever",
-            "publicationDate": "2017",
-            "technicalStatus": "Finish without technical support",
-            "ebv":
-            {
-                "ebvClass": "Genetic composition",
-                "ebvName": "Population genetic differentiation"
-            },
-            "spatialCoverage": "National",
-            "temporalResolution": "Yearly",
-            "taxonomicCoverage": "Amphibians",
-            "License": "CC BY-SA",
-            "pathNameDataset": "cSAR_idiv_004.nc",
-            "pathNameMetadata": "../../../dataset-uploads/31/metadata.xml",
-            "abstract": "hgghghghghghghghghghghghhg",
-            "contactDetails":
-            {
-                "contactPerson": "Aaike De Wever",
-                "contactInstitute": "Aarhus University",
-                "contactEmail": "christian.langer@idiv.de"
-            },
-            "keywords": "Big data,remote sensing"
-        }]
-    }
-    )RAWSTRING";
-
-    Json::Reader reader(Json::Features::strictMode());
-    Json::Value web_service_json;
-
-    if (!reader.parse(web_service_string, web_service_json)) {
-        Log::error(concat(
-                "GeoBonCatalogServiceException: Invalid web service result",
-                '\n',
-                web_service_string
-        ));
-        throw GeoBonCatalogService::GeoBonCatalogServiceException("GeoBonCatalogServiceException: Invalid web service result");
-    }
+    const auto web_service_json = requestJsonFromUrl(combinePaths(
+            Configuration::get<std::string>("ebv.webservice_endpoint"),
+            "datasets/list"
+    ));
 
     Json::Value datasets(Json::arrayValue);
     for (const auto &dataset : web_service_json["data"]) {
-        const std::string dataset_path = concat(
+        // TODO: remove filter and exchange with correct service endpoint
+        const std::string dataset_ebv_name = dataset
+                .get("ebv", Json::Value(Json::objectValue))
+                .get("ebvName", "").asString();
+        if (dataset_ebv_name != ebv_name) continue;
+
+        const std::string dataset_path = combinePaths(
                 Configuration::get<std::string>("ebv.path"),
                 dataset.get("pathNameDataset", "").asString()
         );
@@ -435,6 +255,42 @@ auto GeoBonCatalogService::hasUserPermissions(UserDB::User &user, const std::str
     const std::string permission = concat("data.gdal_source.", ebv_file);
 
     return user.hasPermission(permission);
+}
+
+auto GeoBonCatalogService::requestJsonFromUrl(const std::string &url) -> Json::Value {
+    cURL curl;
+    std::stringstream data;
+
+    curl.setOpt(CURLOPT_PROXY, Configuration::get<std::string>("proxy", "").c_str());
+    curl.setOpt(CURLOPT_URL, url.c_str());
+    curl.setOpt(CURLOPT_WRITEFUNCTION, cURL::defaultWriteFunction);
+    curl.setOpt(CURLOPT_WRITEDATA, &data);
+    curl.perform();
+
+    std::string json = data.str();
+
+    Json::Reader reader(Json::Features::strictMode());
+    Json::Value result;
+    if (!reader.parse(json, result)) {
+        throw GeoBonCatalogServiceException(concat(
+                "GeoBonCatalogServiceException: Could not parse from JSON response: ", json
+        ));
+    }
+
+    return result;
+}
+
+auto GeoBonCatalogService::combinePaths(const std::string &first, const std::string &second) -> std::string {
+    const bool firstEndsWithSlash = first.back() == '/';
+    const bool secondStartsWithSlash = second.front() == '/';
+
+    if (firstEndsWithSlash != secondStartsWithSlash) {
+        return concat(first, second);
+    } else if (firstEndsWithSlash && secondStartsWithSlash) {
+        return concat(first.substr(0, first.length() - 1), second);
+    } else {
+        return concat(first, '/', second);
+    }
 }
 
 auto GeoBonCatalogService::Dataset::to_json() const -> Json::Value {
