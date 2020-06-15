@@ -69,6 +69,9 @@ class GeoBonCatalogService : public HTTPService {
         static auto requestJsonFromUrl(const std::string &url) -> Json::Value;
 
         static auto combinePaths(const std::string &first, const std::string &second) -> std::string;
+
+        template<class T>
+        static auto toJsonArray(const std::vector<T> &vector) -> Json::Value;
 };
 
 REGISTER_HTTP_SERVICE(GeoBonCatalogService, "geo_bon_catalog"); // NOLINT(cert-err58-cpp)
@@ -132,10 +135,18 @@ void GeoBonCatalogService::classes() const {
 }
 
 void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_name) const {
+    //    const auto web_service_json = requestJsonFromUrl(combinePaths(
+    //            Configuration::get<std::string>("ebv.webservice_endpoint"),
+    //            concat("datasets/ebvName/", boost::algorithm::replace_all_copy(ebv_name, " ", "%20"))
+    //    ));
+    // TODO: use new endpoint when ready
     const auto web_service_json = requestJsonFromUrl(combinePaths(
             Configuration::get<std::string>("ebv.webservice_endpoint"),
             "datasets/list"
     ));
+
+    // TODO: remove after testing
+    int remove_i = 0;
 
     Json::Value datasets(Json::arrayValue);
     for (const auto &dataset : web_service_json["data"]) {
@@ -145,10 +156,46 @@ void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_n
                 .get("ebvName", "").asString();
         if (dataset_ebv_name != ebv_name) continue;
 
-        const std::string dataset_path = combinePaths(
-                Configuration::get<std::string>("ebv.path"),
-                dataset.get("pathNameDataset", "").asString()
-        );
+        // TODO: use after testing
+//        const std::string dataset_path = combinePaths(
+//                Configuration::get<std::string>("ebv.path"),
+//                dataset.get("pathNameDataset", "").asString()
+//        );
+
+        // TODO: remove after testing
+        std::string dataset_path;
+        switch (remove_i) {
+            case 0:
+                dataset_path = combinePaths(
+                        Configuration::get<std::string>("ebv.path"),
+                        "cSAR_idiv_004.nc"
+                );
+                break;
+            case 1:
+                dataset_path = combinePaths(
+                        Configuration::get<std::string>("ebv.path"),
+                        "hansen_lossyear_1000m.nc"
+                );
+                break;
+            case 2:
+                dataset_path = combinePaths(
+                        Configuration::get<std::string>("ebv.path"),
+                        "hennekens_003.nc"
+                );
+                break;
+            case 3:
+                dataset_path = combinePaths(
+                        Configuration::get<std::string>("ebv.path"),
+                        "RMF_001.nc"
+                );
+                break;
+            default:
+                dataset_path = combinePaths(
+                        Configuration::get<std::string>("ebv.path"),
+                        dataset.get("pathNameDataset", "").asString()
+                );
+        }
+        remove_i += 1;
 
         GeoBonCatalogService::addUserPermissions(user, dataset_path);
 
@@ -221,23 +268,8 @@ void GeoBonCatalogService::time_dimension(UserDB::User &user, const std::string 
     NetCdfParser net_cdf_parser(ebv_file);
     const auto time_info = net_cdf_parser.time_info();
 
-    Json::Value time_points(Json::arrayValue);
-
-    if (time_info.time_unit == "days") {
-        const auto seconds_per_day = 24 * 60 * 60;
-
-        for (const double time_point_raw : time_info.time_points) {
-            const double time_point = time_info.time_start + time_point_raw * seconds_per_day;
-            time_points.append(time_point);
-        }
-    } else {
-        // TODO: boost calendar additions
-        const boost::posix_time::ptime time_start = boost::posix_time::ptime(boost::gregorian::date(1970, 1, 1)) +
-                                                    boost::posix_time::milliseconds(static_cast<long>(time_info.time_start * 1000));
-    }
-
     Json::Value result(Json::objectValue);
-    result["time_points"] = time_points;
+    result["time_points"] = toJsonArray(time_info.time_points_unix);
     result["delta_unit"] = time_info.delta_unit;
 
     response.sendSuccessJSON(result);
@@ -291,6 +323,15 @@ auto GeoBonCatalogService::combinePaths(const std::string &first, const std::str
     } else {
         return concat(first, '/', second);
     }
+}
+
+template<class T>
+auto GeoBonCatalogService::toJsonArray(const std::vector<T> &vector) -> Json::Value {
+    Json::Value array(Json::arrayValue);
+    for (const auto &v : vector) {
+        array.append(v);
+    }
+    return array;
 }
 
 auto GeoBonCatalogService::Dataset::to_json() const -> Json::Value {
