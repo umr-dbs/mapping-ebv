@@ -40,7 +40,8 @@ class GeoBonCatalogService : public HTTPService {
                              const std::vector<std::string> &ebv_group_path) const;
 
         /// Extract and return the EBV time dimension
-        void time_dimension(UserDB::User &user,
+        void data_loading_info
+    (UserDB::User &user,
                             const std::string &ebv_file) const;
 
     private:
@@ -58,6 +59,7 @@ class GeoBonCatalogService : public HTTPService {
             std::string description;
             std::string license;
             std::string dataset_path;
+            std::string wkt_code;
 
             auto to_json() const -> Json::Value;
         };
@@ -91,8 +93,9 @@ void GeoBonCatalogService::run() {
                                   params.get("ebv_path"),
                                   params.get("ebv_subgroup"),
                                   split(params.get("ebv_group_path"), '/'));
-        } else if (request == "time_points") {
-            this->time_dimension(session->getUser(), params.get("ebv_path"));
+        } else if (request == "data_loading_info") {
+            this->data_loading_info
+        (session->getUser(), params.get("ebv_path"));
         } else { // FALLBACK
             response.sendFailureJSON("GeoBonCatalogService: Invalid request");
         }
@@ -213,7 +216,7 @@ void GeoBonCatalogService::subgroup_values(UserDB::User &user,
     response.sendSuccessJSON(result);
 }
 
-void GeoBonCatalogService::time_dimension(UserDB::User &user, const std::string &ebv_file) const {
+void GeoBonCatalogService::data_loading_info(UserDB::User &user, const std::string &ebv_file) const {
     if (!hasUserPermissions(user, ebv_file)) {
         throw GeoBonCatalogServiceException(concat("GeoBonCatalogServiceException: Missing access rights for ", ebv_file));
     }
@@ -239,6 +242,9 @@ void GeoBonCatalogService::time_dimension(UserDB::User &user, const std::string 
     Json::Value result(Json::objectValue);
     result["time_points"] = time_points;
     result["delta_unit"] = time_info.delta_unit;
+
+    const auto crs_code = net_cdf_parser.crs_as_code();
+    result["crs_code"] = crs_code;
 
     response.sendSuccessJSON(result);
 }

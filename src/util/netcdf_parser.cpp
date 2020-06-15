@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <util/log.h>
 #include "netcdf_parser.h"
+#include <gdal/ogr_spatialref.h>
 
 auto attribute_to_string(const H5::Attribute &attribute) -> std::string {
     std::string buffer;
@@ -69,6 +70,23 @@ auto dataset_to_float_vector(const H5::DataSet &dataSet) -> std::vector<float> {
     dataSet.read(static_cast<void *>(buffer.data()), dataSet.getDataType());
 
     return buffer;
+}
+
+auto NetCdfParser::crs_wkt() const -> std::string {
+    const auto dataSet = file.openDataSet("ebv");
+    const auto attribute = dataSet.openAttribute("spatial_ref");
+    return attribute_to_string(attribute);
+}
+
+auto NetCdfParser::crs_as_code() const -> std::string {
+
+    const std::string crs_wkt = this->crs_wkt();
+
+    OGRSpatialReference sref = OGRSpatialReference(crs_wkt.c_str());
+    const std::string geogcs_authority = std::string(sref.GetAuthorityName("GEOGCS"));
+    const std::string geogcs_code = std::string(sref.GetAuthorityCode("GEOGCS"));
+
+    return concat(geogcs_authority, ":", geogcs_code);
 }
 
 auto NetCdfParser::ebv_class() const -> std::string {

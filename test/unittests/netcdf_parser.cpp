@@ -76,4 +76,9 @@ TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
                     .time_points = {18262, 21914, 25567, 29219, 32872, 36524, 40177, 43829, 47482, 51134, 54787, 56613},
             })
     );
+
+    EXPECT_EQ(
+            parser.crs_as_code(),
+            "EPSG:4326"
+    );
 }
