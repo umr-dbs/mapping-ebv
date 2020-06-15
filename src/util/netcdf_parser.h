@@ -32,6 +32,10 @@ class NetCdfParser {
 
         explicit NetCdfParser(const std::string &path) : file(H5::H5File(path, H5F_ACC_RDONLY)) {}
 
+        auto crs_wkt() const -> std::string;
+
+        auto crs_as_code() const -> std::string;
+        
         auto ebv_class() const -> std::string;
 
         auto ebv_name() const -> std::string;
