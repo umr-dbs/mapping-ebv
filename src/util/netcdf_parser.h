@@ -51,13 +51,17 @@ class NetCdfParser {
             int delta;
             std::string delta_unit;
 
+            std::vector<double> time_points_unix;
             std::vector<double> time_points;
 
             friend std::ostream &operator<<(std::ostream &os, const NetCdfTimeInfo &info) {
                 os << "time_start: " << info.time_start << " time_unit: " << info.time_unit << " delta: " << info.delta << " delta_unit: "
                    << info.delta_unit << " time_points: [";
 
-                std::copy (info.time_points.cbegin(), info.time_points.cend(), std::ostream_iterator<double>(os, ", "));
+                std::copy(info.time_points.cbegin(), info.time_points.cend(), std::ostream_iterator<double>(os, ", "));
+                os << "\b\b] time_points_unix: [";
+
+                std::copy(info.time_points_unix.cbegin(), info.time_points_unix.cend(), std::ostream_iterator<double>(os, ", "));
                 os << "\b\b]";
 
                 return os;
@@ -68,7 +72,8 @@ class NetCdfParser {
                        time_unit == rhs.time_unit &&
                        delta == rhs.delta &&
                        delta_unit == rhs.delta_unit &&
-                       time_points == rhs.time_points;
+                       time_points == rhs.time_points &&
+                       time_points_unix == rhs.time_points_unix;
             }
 
             bool operator!=(const NetCdfTimeInfo &rhs) const {
@@ -77,6 +82,11 @@ class NetCdfParser {
         };
 
         auto time_info() const -> NetCdfTimeInfo;
+
+    protected:
+        static auto time_points_as_unix(double time_start,
+                                 const std::string &time_unit,
+                                 const std::vector<double> &time_points) -> std::vector<double>;
 
     private:
         H5::H5File file;

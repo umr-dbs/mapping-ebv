@@ -3,6 +3,8 @@
 #include <util/timeparser.h>
 #include <algorithm>
 #include <util/log.h>
+#include <boost/date_time/posix_time/ptime.hpp>
+#include <boost/date_time/posix_time/posix_time_duration.hpp>
 #include "netcdf_parser.h"
 
 auto attribute_to_string(const H5::Attribute &attribute) -> std::string {
@@ -98,7 +100,7 @@ auto NetCdfParser::ebv_subgroup_descriptions() const -> std::vector<std::string>
     return attribute_to_string_vector(attribute);
 }
 
-template <class T>
+template<class T>
 auto read_attribute_optionally(const T &group, const std::string &field, const std::string &default_value) -> std::string {
     if (group.attrExists(field)) {
         return attribute_to_string(group.openAttribute(field));
@@ -190,14 +192,38 @@ auto NetCdfParser::time_info() const -> NetCdfParser::NetCdfTimeInfo {
                    [](unsigned char c) { return std::tolower(c); });
 
     const auto time_vector = dataset_to_float_vector(time_field);
+    const auto time_points = std::vector<double>(time_vector.cbegin(), time_vector.cend());
 
     return {
             .time_start = time_start,
             .time_unit = time_reference_unit,
             .delta = static_cast<int>(strtol(time_delta_string.c_str(), nullptr, 10)),
             .delta_unit = time_delta_unit,
-            .time_points = std::vector<double>(time_vector.cbegin(), time_vector.cend()),
+            .time_points_unix = NetCdfParser::time_points_as_unix(time_start, time_reference_unit, time_points),
+            .time_points = time_points,
     };
+}
+
+auto NetCdfParser::time_points_as_unix(double time_start,
+                                       const std::string &time_unit,
+                                       const std::vector<double> &time_points) -> std::vector<double> {
+    std::vector<double> unix_time_points;
+    unix_time_points.reserve(time_points.size());
+
+    if (time_unit == "days") {
+        const auto seconds_per_day = 24 * 60 * 60;
+
+        for (const double time_point_raw : time_points) {
+            const double time_point = time_start + time_point_raw * seconds_per_day;
+            unix_time_points.emplace_back(time_point);
+        }
+    } else {
+        // TODO: boost calendar additions
+        const boost::posix_time::ptime posix_time_start = boost::posix_time::ptime(boost::gregorian::date(1970, 1, 1)) +
+                                                          boost::posix_time::milliseconds(static_cast<long>(time_start * 1000));
+    }
+
+    return unix_time_points;
 }
 
 bool NetCdfParser::NetCdfValue::operator==(const NetCdfParser::NetCdfValue &rhs) const {
