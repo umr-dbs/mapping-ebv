@@ -75,7 +75,7 @@ auto dataset_to_float_vector(const H5::DataSet &dataSet) -> std::vector<float> {
 }
 
 auto NetCdfParser::crs_wkt() const -> std::string {
-    const auto dataSet = file.openDataSet("ebv");
+    const auto dataSet = file.openDataSet("crs");
     const auto attribute = dataSet.openAttribute("spatial_ref");
     return attribute_to_string(attribute);
 }
@@ -83,12 +83,15 @@ auto NetCdfParser::crs_wkt() const -> std::string {
 auto NetCdfParser::crs_as_code() const -> std::string {
 
     const std::string crs_wkt = this->crs_wkt();
+    Log::debug(concat("NetCdfParser: CRS wkt string: ", crs_wkt));
 
     OGRSpatialReference sref = OGRSpatialReference(crs_wkt.c_str());
     const std::string geogcs_authority = std::string(sref.GetAuthorityName("GEOGCS"));
     const std::string geogcs_code = std::string(sref.GetAuthorityCode("GEOGCS"));
+    const std::string crs_code = concat(geogcs_authority, ":", geogcs_code);
+    Log::debug(concat("NetCdfParser: CRS code: ", crs_code));
 
-    return concat(geogcs_authority, ":", geogcs_code);
+    return crs_code;
 }
 
 auto NetCdfParser::ebv_class() const -> std::string {
