@@ -7,7 +7,6 @@
 #include <util/log.h>
 #include <util/netcdf_parser.h>
 #include <util/stringsplit.h>
-#include <boost/date_time/posix_time/conversion.hpp>
 
 /// This class provides methods for user authentication with OpenId Connect
 class GeoBonCatalogService : public HTTPService {
@@ -151,10 +150,10 @@ void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_n
     Json::Value datasets(Json::arrayValue);
     for (const auto &dataset : web_service_json["data"]) {
         // TODO: remove filter and exchange with correct service endpoint
-        const std::string dataset_ebv_name = dataset
-                .get("ebv", Json::Value(Json::objectValue))
-                .get("ebvName", "").asString();
-        if (dataset_ebv_name != ebv_name) continue;
+//        const std::string dataset_ebv_name = dataset
+//                .get("ebv", Json::Value(Json::objectValue))
+//                .get("ebvName", "").asString();
+//        if (dataset_ebv_name != ebv_name) continue;
 
         // TODO: use after testing
 //        const std::string dataset_path = combinePaths(
