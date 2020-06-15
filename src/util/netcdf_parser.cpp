@@ -85,10 +85,19 @@ auto NetCdfParser::crs_as_code() const -> std::string {
     const std::string crs_wkt = this->crs_wkt();
     Log::debug(concat("NetCdfParser: CRS wkt string: ", crs_wkt));
 
+    std::string crs_code = "";
     OGRSpatialReference sref = OGRSpatialReference(crs_wkt.c_str());
-    const std::string geogcs_authority = std::string(sref.GetAuthorityName("GEOGCS"));
-    const std::string geogcs_code = std::string(sref.GetAuthorityCode("GEOGCS"));
-    const std::string crs_code = concat(geogcs_authority, ":", geogcs_code);
+    if (sref.IsGeographic()) {
+        const std::string geogcs_authority = std::string(sref.GetAuthorityName("GEOGCS"));
+        const std::string geogcs_code = std::string(sref.GetAuthorityCode("GEOGCS"));
+        crs_code = concat(geogcs_authority, ":", geogcs_code);
+    }
+    if (sref.IsProjected()) {
+        const std::string projcs_authority = std::string(sref.GetAuthorityName("PROJCS"));
+        const std::string projcs_code = std::string(sref.GetAuthorityCode("PROJCS"));
+        crs_code = concat(projcs_authority, ":", projcs_code);
+    }
+    
     Log::debug(concat("NetCdfParser: CRS code: ", crs_code));
 
     return crs_code;
