@@ -4,7 +4,7 @@
 #include "util.h"
 
 TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
-    NetCdfParser parser(test_util::get_data_dir() + "cSAR_idiv_004.nc");
+    NetCdfParser parser(test_util::get_data_dir() + "48/netcdf/cSAR_idiv_v1.nc");
 
     EXPECT_EQ(parser.ebv_class(), "Community composition");
     EXPECT_EQ(parser.ebv_name(), "Species diversity");
@@ -13,28 +13,25 @@ TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
     EXPECT_EQ(parser.ebv_subgroups(), (std::vector<std::string>{"scenario", "metric", "entity"}));
 
     EXPECT_EQ(parser.ebv_subgroup_descriptions(),
-              (std::vector<std::string>{"two different scenarions where used - past_xx1, past_xx2", "used metrics are mean and max",
-                                        "different grouping of bird species"})
+              (std::vector<std::string>{"one scenario", "one metric", "three entities: non forest birds, forest birds, all birds"})
     );
 
     EXPECT_EQ(
             parser.ebv_subgroup_values("scenario", {}),
             (std::vector<NetCdfParser::NetCdfValue>{
-                    {.name = "past_xx1", .label= "past not condidering CO2", .description="some discription for past not condidering CO2"},
-                    {.name = "past_xx2", .label= "past condidering CO2", .description="some discription for past condidering CO2"}
+                    {.name = "past", .label= "past: 1900 - 2015", .description="calculations where done per decade betrween 1900 and 2015"},
             })
     );
 
     EXPECT_EQ(
-            parser.ebv_subgroup_values("metric", std::vector<std::string>{"past_xx1"}),
+            parser.ebv_subgroup_values("metric", std::vector<std::string>{"past"}),
             (std::vector<NetCdfParser::NetCdfValue>{
-                    {.name = "mean", .label= "mean values per decade", .description="some discription for mean values per decade"},
-                    {.name = "max", .label= "max value per decade", .description="some discription for max value per decade"}
+                    {.name = "mean", .label= "mean", .description="mean values per decade"},
             })
     );
 
     EXPECT_EQ(
-            parser.ebv_subgroup_values("entity", std::vector<std::string>{"past_xx1", "mean"}),
+            parser.ebv_subgroup_values("entity", std::vector<std::string>{"past", "mean"}),
             (std::vector<NetCdfParser::NetCdfValue>{
                     {
                             .name = "0",
@@ -83,4 +80,9 @@ TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
             parser.crs_as_code(),
             "EPSG:4326"
     );
+
+    const auto unit_range = parser.unit_range(std::vector<std::string>{"past", "mean", "0"});
+    ASSERT_EQ(unit_range.size(), 2);
+    EXPECT_DOUBLE_EQ(unit_range[0], -31.24603271484375);
+    EXPECT_DOUBLE_EQ(unit_range[1], 31.14495849609375);
 }

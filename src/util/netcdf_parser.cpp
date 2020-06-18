@@ -85,7 +85,7 @@ auto NetCdfParser::crs_as_code() const -> std::string {
     const std::string crs_wkt = this->crs_wkt();
     Log::debug(concat("NetCdfParser: CRS wkt string: ", crs_wkt));
 
-    std::string crs_code = "";
+    std::string crs_code;
     OGRSpatialReference sref = OGRSpatialReference(crs_wkt.c_str());
     if (sref.IsGeographic()) {
         const std::string geogcs_authority = std::string(sref.GetAuthorityName("GEOGCS"));
@@ -97,7 +97,7 @@ auto NetCdfParser::crs_as_code() const -> std::string {
         const std::string projcs_code = std::string(sref.GetAuthorityCode("PROJCS"));
         crs_code = concat(projcs_authority, ":", projcs_code);
     }
-    
+
     Log::debug(concat("NetCdfParser: CRS code: ", crs_code));
 
     return crs_code;
@@ -277,4 +277,77 @@ auto NetCdfParser::NetCdfValue::to_json() const -> Json::Value {
 std::ostream &operator<<(std::ostream &os, const NetCdfParser::NetCdfValue &value) {
     os << "name: " << value.name << " label: " << value.label << " description: " << value.description;
     return os;
+}
+
+auto NetCdfParser::unit_range(const std::vector<std::string> &entity_path) const -> std::array<double, 2> {
+    const std::string value_range_identifier = "value_range";
+
+    H5::Group group = file.openGroup("/"); // open root group
+    for (const auto &group_name : entity_path) {
+        if (group.attrExists(value_range_identifier)) {
+            H5::Attribute value_range = group.openAttribute(value_range_identifier);
+            std::vector<double> range = attribute_to_casted_double_vector(value_range);
+
+            if (range.size() != 2) {
+                throw NetCdfParserException(concat("Attribute `value_range` must contain 2 element, but contains ", range.size()));
+            }
+
+            return {range[0], range[1]};
+        }
+
+        group = group.openGroup(group_name);
+    }
+
+    return {0., 1.}; // default if nothing is found
+}
+
+/// Reads `to.capacity()` number of values from the attribute, casts it and pastes it to `to`
+template<class NumberType>
+auto NetCdfParser::attribute_to_casted_double_vector_typed(const H5::Attribute &attribute) -> std::vector<double> {
+    const auto number_of_values = attribute.getSpace().getSimpleExtentNpoints();
+
+    std::vector<NumberType> buffer(number_of_values);
+
+    attribute.read(attribute.getDataType(), static_cast<void *>(buffer.data()));
+
+    std::vector<double> result;
+    result.reserve(number_of_values);
+
+    for (auto value : buffer) {
+        result.emplace_back(value);
+    }
+
+    return result;
+}
+
+auto NetCdfParser::attribute_to_casted_double_vector(const H5::Attribute &attribute) -> std::vector<double> {
+    const H5::DataType datatype = attribute.getDataType();
+    const H5T_class_t datatype_class = datatype.getClass();
+
+    switch (datatype_class) {
+        case H5T_INTEGER: {
+            const auto precision = attribute.getIntType().getPrecision();
+            switch (precision) {
+                case 32:
+                    return attribute_to_casted_double_vector_typed<int>(attribute);
+                case 64:
+                    return attribute_to_casted_double_vector_typed<long>(attribute);
+                default:
+                    throw NetCdfParserException(concat("Unsupported int precision (", precision, ") for `value_range`"));
+            }
+        }
+        case H5T_FLOAT: {
+            const auto precision = attribute.getFloatType().getPrecision();
+            switch (precision) {
+                case 32:
+                    return attribute_to_casted_double_vector_typed<float>(attribute);
+                case 64:
+                    return attribute_to_casted_double_vector_typed<double>(attribute);
+                default:
+                    throw NetCdfParserException(concat("Unsupported float precision (", precision, ") for `value_range`"));
+            }
+        }
+        default:
+            throw NetCdfParserException(concat("Unsupported Datatype `", datatype_class, "` for `value_range`"));
+    }
 }

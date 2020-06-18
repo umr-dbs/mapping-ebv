@@ -87,10 +87,17 @@ class NetCdfParser {
 
         auto time_info() const -> NetCdfTimeInfo;
 
+        auto unit_range(const std::vector<std::string> &dataset_path) const -> std::array<double, 2>;
+
     protected:
         static auto time_points_as_unix(double time_start,
                                  const std::string &time_unit,
                                  const std::vector<double> &time_points) -> std::vector<double>;
+
+        static auto attribute_to_casted_double_vector(const H5::Attribute &attribute) -> std::vector<double>;
+
+        template<class T>
+        static auto attribute_to_casted_double_vector_typed(const H5::Attribute &attribute) -> std::vector<double>;
 
     private:
         H5::H5File file;

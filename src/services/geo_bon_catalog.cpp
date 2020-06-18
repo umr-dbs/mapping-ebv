@@ -39,9 +39,10 @@ class GeoBonCatalogService : public HTTPService {
                              const std::string &ebv_subgroup,
                              const std::vector<std::string> &ebv_group_path) const;
 
-        /// Extract and return the EBV time dimension
+        /// Extract and return meta data for loading the dataset
         void data_loading_info(UserDB::User &user,
-                               const std::string &ebv_file) const;
+                               const std::string &ebv_file,
+                               const std::vector<std::string> &ebv_entity_path) const;
 
     private:
         struct EbvClass {
@@ -95,7 +96,9 @@ void GeoBonCatalogService::run() {
                                   params.get("ebv_subgroup"),
                                   split(params.get("ebv_group_path"), '/'));
         } else if (request == "data_loading_info") {
-            this->data_loading_info(session->getUser(), params.get("ebv_path"));
+            this->data_loading_info(session->getUser(),
+                                    params.get("ebv_path"),
+                                    split(params.get("ebv_entity_path"), '/'));
         } else { // FALLBACK
             response.sendFailureJSON("GeoBonCatalogService: Invalid request");
         }
@@ -179,7 +182,11 @@ void GeoBonCatalogService::subgroups(UserDB::User &user, const std::string &ebv_
     for (size_t i = 0; i < subgroup_names.size(); ++i) {
         Json::Value subgroup_json(Json::objectValue);
         subgroup_json["name"] = subgroup_names[i];
-        subgroup_json["description"] = subgroup_descriptions[i];
+        if (subgroup_descriptions.size() > i) { // TODO: remove, once data format is consistent
+            subgroup_json["description"] = subgroup_descriptions[i];
+        } else {
+            subgroup_json["description"] = "";
+        }
         subgroups_json.append(subgroup_json);
     }
 
@@ -210,20 +217,22 @@ void GeoBonCatalogService::subgroup_values(UserDB::User &user,
     response.sendSuccessJSON(result);
 }
 
-void GeoBonCatalogService::data_loading_info(UserDB::User &user, const std::string &ebv_file) const {
+void GeoBonCatalogService::data_loading_info(UserDB::User &user,
+                                             const std::string &ebv_file,
+                                             const std::vector<std::string> &ebv_entity_path) const {
     if (!hasUserPermissions(user, ebv_file)) {
         throw GeoBonCatalogServiceException(concat("GeoBonCatalogServiceException: Missing access rights for ", ebv_file));
     }
 
     NetCdfParser net_cdf_parser(ebv_file);
     const auto time_info = net_cdf_parser.time_info();
+    const auto unit_range = net_cdf_parser.unit_range(ebv_entity_path);
 
     Json::Value result(Json::objectValue);
     result["time_points"] = toJsonArray(time_info.time_points_unix);
     result["delta_unit"] = time_info.delta_unit;
-
-    const auto crs_code = net_cdf_parser.crs_as_code();
-    result["crs_code"] = crs_code;
+    result["crs_code"] = net_cdf_parser.crs_as_code();
+    result["unit_range"] = toJsonArray(std::vector<double>{unit_range[0], unit_range[1]});
 
     response.sendSuccessJSON(result);
 }
