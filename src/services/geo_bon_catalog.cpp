@@ -7,6 +7,7 @@
 #include <util/log.h>
 #include <util/netcdf_parser.h>
 #include <util/stringsplit.h>
+#include <boost/algorithm/string.hpp>
 
 /// This class provides methods for user authentication with OpenId Connect
 class GeoBonCatalogService : public HTTPService {
@@ -39,9 +40,8 @@ class GeoBonCatalogService : public HTTPService {
                              const std::vector<std::string> &ebv_group_path) const;
 
         /// Extract and return the EBV time dimension
-        void data_loading_info
-    (UserDB::User &user,
-                            const std::string &ebv_file) const;
+        void data_loading_info(UserDB::User &user,
+                               const std::string &ebv_file) const;
 
     private:
         struct EbvClass {
@@ -58,7 +58,6 @@ class GeoBonCatalogService : public HTTPService {
             std::string description;
             std::string license;
             std::string dataset_path;
-            std::string wkt_code;
 
             auto to_json() const -> Json::Value;
         };
@@ -96,8 +95,7 @@ void GeoBonCatalogService::run() {
                                   params.get("ebv_subgroup"),
                                   split(params.get("ebv_group_path"), '/'));
         } else if (request == "data_loading_info") {
-            this->data_loading_info
-        (session->getUser(), params.get("ebv_path"));
+            this->data_loading_info(session->getUser(), params.get("ebv_path"));
         } else { // FALLBACK
             response.sendFailureJSON("GeoBonCatalogService: Invalid request");
         }
@@ -137,67 +135,17 @@ void GeoBonCatalogService::classes() const {
 }
 
 void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_name) const {
-    //    const auto web_service_json = requestJsonFromUrl(combinePaths(
-    //            Configuration::get<std::string>("ebv.webservice_endpoint"),
-    //            concat("datasets/ebvName/", boost::algorithm::replace_all_copy(ebv_name, " ", "%20"))
-    //    ));
-    // TODO: use new endpoint when ready
     const auto web_service_json = requestJsonFromUrl(combinePaths(
             Configuration::get<std::string>("ebv.webservice_endpoint"),
-            "datasets/list"
+            concat("datasets/ebvName/", boost::algorithm::replace_all_copy(ebv_name, " ", "%20"))
     ));
-
-    // TODO: remove after testing
-    int remove_i = 0;
 
     Json::Value datasets(Json::arrayValue);
     for (const auto &dataset : web_service_json["data"]) {
-        // TODO: remove filter and exchange with correct service endpoint
-//        const std::string dataset_ebv_name = dataset
-//                .get("ebv", Json::Value(Json::objectValue))
-//                .get("ebvName", "").asString();
-//        if (dataset_ebv_name != ebv_name) continue;
-
-        // TODO: use after testing
-//        const std::string dataset_path = combinePaths(
-//                Configuration::get<std::string>("ebv.path"),
-//                dataset.get("pathNameDataset", "").asString()
-//        );
-
-        // TODO: remove after testing
-        std::string dataset_path;
-        switch (remove_i) {
-            case 0:
-                dataset_path = combinePaths(
-                        Configuration::get<std::string>("ebv.path"),
-                        "cSAR_idiv_004.nc"
-                );
-                break;
-            case 1:
-                dataset_path = combinePaths(
-                        Configuration::get<std::string>("ebv.path"),
-                        "hansen_lossyear_1000m.nc"
-                );
-                break;
-            case 2:
-                dataset_path = combinePaths(
-                        Configuration::get<std::string>("ebv.path"),
-                        "hennekens_003.nc"
-                );
-                break;
-            case 3:
-                dataset_path = combinePaths(
-                        Configuration::get<std::string>("ebv.path"),
-                        "RMF_001.nc"
-                );
-                break;
-            default:
-                dataset_path = combinePaths(
-                        Configuration::get<std::string>("ebv.path"),
-                        dataset.get("pathNameDataset", "").asString()
-                );
-        }
-        remove_i += 1;
+        const std::string dataset_path = combinePaths(
+                Configuration::get<std::string>("ebv.path"),
+                dataset.get("pathNameDataset", "").asString()
+        );
 
         GeoBonCatalogService::addUserPermissions(user, dataset_path);
 
