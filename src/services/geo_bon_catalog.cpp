@@ -24,6 +24,9 @@ class GeoBonCatalogService : public HTTPService {
         /// Dispatch requests
         void run() override;
 
+        /// Load and return an ID specified EBV dataset from the catalog
+        void dataset(const std::string &id) const;
+
         /// Load and return all EBV classes from the catalog
         void classes() const;
 
@@ -84,7 +87,9 @@ void GeoBonCatalogService::run() {
 
         const std::string &request = params.get("request");
 
-        if (request == "classes") {
+        if (request == "dataset") {
+          this->dataset(params.get("id"));
+        } else if (request == "classes") {
             this->classes();
         } else if (request == "datasets") {
             this->datasets(session->getUser(), params.get("ebv_name"));
@@ -106,6 +111,20 @@ void GeoBonCatalogService::run() {
     } catch (const std::exception &e) {
         response.sendFailureJSON(e.what());
     }
+}
+
+void GeoBonCatalogService::dataset(const std::string &id) const { //Development - iDiv - Thomas Bauer
+    const auto web_service_json = requestJsonFromUrl(combinePaths(
+            Configuration::get<std::string>("ebv.webservice_endpoint"),
+            concat("datasets/id/", boost::algorithm::replace_all_copy(id, " ", "%20"))
+    ));
+
+    const auto dataset = web_service_json.get("data", Json::Value(Json::objectValue));
+
+    Json::Value result(Json::objectValue);
+    result["dataset"] = dataset;
+
+    response.sendSuccessJSON(result);
 }
 
 void GeoBonCatalogService::classes() const {
@@ -156,7 +175,7 @@ void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_n
                 .id = dataset.get("id", "").asString(),
                 .name = dataset.get("name", "").asString(),
                 .author = dataset.get("author", "").asString(),
-                .description = dataset.get("abstract", "").asString(),
+                .description = dataset.get("description", "").asString(),
                 .license = dataset.get("License", "").asString(),
                 .dataset_path = dataset_path,
         }.to_json());
