@@ -4,7 +4,7 @@
 #include "util.h"
 
 TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
-    NetCdfParser parser(test_util::get_data_dir() + "48/netcdf/cSAR_idiv_v1.nc");
+    NetCdfParser parser(test_util::get_data_dir() + "1/netcdf/cSAR_idiv_v1.nc");
 
     EXPECT_EQ(parser.ebv_class(), "Community composition");
     EXPECT_EQ(parser.ebv_name(), "Species diversity");
