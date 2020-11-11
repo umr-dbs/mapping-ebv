@@ -127,7 +127,7 @@ void GeoBonCatalogService::dataset(UserDB::User &user, const std::string &id) co
 
     const std::string dataset_path = combinePaths(
             Configuration::get<std::string>("ebv.path"),
-            dataset.get("pathNameDataset", "").asString()
+            dataset.get("dataset", "").get("pathname", "").asString()
     );
     GeoBonCatalogService::addUserPermissions(user, dataset_path);
 
@@ -177,7 +177,7 @@ void GeoBonCatalogService::classes() const {
     for (const auto &dataset : web_service_json["data"]) {
         std::vector<std::string> ebv_names;
 
-        const auto ebv_names_json = dataset.get("ebvName", Json::Value(Json::arrayValue));
+	const auto ebv_names_json = dataset.get("ebvName", Json::Value(Json::arrayValue));
 
         ebv_names.reserve(ebv_names.size());
         for (const auto &ebvName : ebv_names_json) {
@@ -206,17 +206,17 @@ void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_n
     for (const auto &dataset : web_service_json["data"]) {
         const std::string dataset_path = combinePaths(
                 Configuration::get<std::string>("ebv.path"),
-                dataset.get("pathNameDataset", "").asString()
+                dataset.get("dataset", "").get("pathname", "").asString()
         );
 
         GeoBonCatalogService::addUserPermissions(user, dataset_path);
 
         datasets.append(GeoBonCatalogService::Dataset{
                 .id = dataset.get("id", "").asString(),
-                .name = dataset.get("name", "").asString(),
-                .author = dataset.get("author", "").asString(),
-                .description = dataset.get("description", "").asString(),
-                .license = dataset.get("License", "").asString(),
+                .name = dataset.get("title", "").asString(),
+                .author = dataset.get("creator", "").get("creatorName", "").asString(),
+                .description = dataset.get("abstract", "").asString(),
+                .license = dataset.get("licenseName", "").asString(),
                 .dataset_path = dataset_path,
         }.to_json());
     }
