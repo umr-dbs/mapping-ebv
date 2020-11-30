@@ -45,7 +45,8 @@ class GeoBonCatalogService : public HTTPService {
         /// Extract and return meta data for loading the dataset
         void data_loading_info(UserDB::User &user,
                                const std::string &ebv_file,
-                               const std::vector<std::string> &ebv_entity_path) const;
+                               // const std::vector<std::string> &ebv_entity_path) const;
+                               const std::string &ebv_entity_path) const;
 
     private:
         struct EbvClass {
@@ -105,7 +106,8 @@ void GeoBonCatalogService::run() {
         } else if (request == "data_loading_info") {
             this->data_loading_info(session->getUser(),
                                     params.get("ebv_path"),
-                                    split(params.get("ebv_entity_path"), '/'));
+                                    // split(params.get("ebv_entity_path"), '/'));
+                                    params.get("ebv_entity_path"));
         } else { // FALLBACK
             response.sendFailureJSON("GeoBonCatalogService: Invalid request");
         }
@@ -282,7 +284,8 @@ void GeoBonCatalogService::subgroup_values(UserDB::User &user,
 
 void GeoBonCatalogService::data_loading_info(UserDB::User &user,
                                              const std::string &ebv_file,
-                                             const std::vector<std::string> &ebv_entity_path) const {
+                                             // const std::vector<std::string> &ebv_entity_path) const {
+                                             const std::string &ebv_entity_path) const {
     if (!hasUserPermissions(user, ebv_file)) {
         throw GeoBonCatalogServiceException(concat("GeoBonCatalogServiceException: Missing access rights for ", ebv_file));
     }

@@ -35,7 +35,7 @@ class NetCdfParser {
         auto crs_wkt() const -> std::string;
 
         auto crs_as_code() const -> std::string;
-        
+
         auto ebv_class() const -> std::string;
 
         auto ebv_name() const -> std::string;
@@ -87,7 +87,7 @@ class NetCdfParser {
 
         auto time_info() const -> NetCdfTimeInfo;
 
-        auto unit_range(const std::vector<std::string> &dataset_path) const -> std::array<double, 2>;
+        auto unit_range(const std::string &dataset_path) const -> std::array<double, 2>;
 
     protected:
         static auto time_points_as_unix(double time_start,

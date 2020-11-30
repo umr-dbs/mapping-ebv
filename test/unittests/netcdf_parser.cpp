@@ -81,7 +81,7 @@ TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
             "EPSG:4326"
     );
 
-    const auto unit_range = parser.unit_range(std::vector<std::string>{"past", "mean", "0"});
+    const auto unit_range = parser.unit_range(std::string{"past/mean/0"});
     ASSERT_EQ(unit_range.size(), 2);
     EXPECT_DOUBLE_EQ(unit_range[0], -31.24603271484375);
     EXPECT_DOUBLE_EQ(unit_range[1], 31.14495849609375);
