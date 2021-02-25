@@ -122,7 +122,7 @@ void GeoBonCatalogService::dataset(UserDB::User &user, const std::string &id) co
 
     const auto web_service_json = requestJsonFromUrl(combinePaths(
             Configuration::get<std::string>("ebv.webservice_endpoint"),
-            concat("datasets/id/", boost::algorithm::replace_all_copy(id, " ", "%20"))
+            concat("datasets/", boost::algorithm::replace_all_copy(id, " ", "%20"))
     ));
 
     const auto dataset = web_service_json.get("data", Json::Value(Json::objectValue))[0];
@@ -201,7 +201,7 @@ void GeoBonCatalogService::classes() const {
 void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_name) const {
     const auto web_service_json = requestJsonFromUrl(combinePaths(
             Configuration::get<std::string>("ebv.webservice_endpoint"),
-            concat("datasets/ebvName/", boost::algorithm::replace_all_copy(ebv_name, " ", "%20"))
+            concat("datasets/filter?ebvName=", boost::algorithm::replace_all_copy(ebv_name, " ", "+"))
     ));
 
     Json::Value datasets(Json::arrayValue);
