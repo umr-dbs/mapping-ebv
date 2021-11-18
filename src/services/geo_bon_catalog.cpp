@@ -179,7 +179,7 @@ void GeoBonCatalogService::classes() const {
     for (const auto &dataset : web_service_json["data"]) {
         std::vector<std::string> ebv_names;
 
-	const auto ebv_names_json = dataset.get("ebv", "").get("ebv_name", Json::Value(Json::arrayValue));
+	const auto ebv_names_json = dataset.get("ebv_name", Json::Value(Json::arrayValue));
 
         ebv_names.reserve(ebv_names.size());
         for (const auto &ebvName : ebv_names_json) {
