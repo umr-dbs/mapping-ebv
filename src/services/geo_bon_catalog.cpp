@@ -182,7 +182,7 @@ void GeoBonCatalogService::classes() const {
 	const auto ebv_names_json = dataset.get("ebv_name", Json::Value(Json::arrayValue));
 
         ebv_names.reserve(ebv_names.size());
-        for (const auto &ebv_name : ebv_names_json) {
+        for (const auto &ebvName : ebv_names_json) {
             ebv_names.push_back(ebv_name.asString());
         }
 
