@@ -137,7 +137,7 @@ void GeoBonCatalogService::classes() const {
     for (const auto &dataset : web_service_json["data"]) {
         std::vector<std::string> ebv_names;
 
-        const auto ebv_names_json = dataset.get("ebvName", Json::Value(Json::arrayValue));
+        const auto ebv_names_json = dataset.get("ebv_name", Json::Value(Json::arrayValue));
 
         ebv_names.reserve(ebv_names.size());
         for (const auto &ebvName : ebv_names_json) {
@@ -145,7 +145,7 @@ void GeoBonCatalogService::classes() const {
         }
 
         datasets.append(GeoBonCatalogService::EbvClass{
-                .name = dataset.get("ebvClass", "").asString(),
+                .name = dataset.get("ebv_class", "").asString(),
                 .ebv_names = ebv_names,
         }.to_json());
     }
@@ -173,10 +173,10 @@ void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_n
 
         datasets.append(GeoBonCatalogService::Dataset{
                 .id = dataset.get("id", "").asString(),
-                .name = dataset.get("name", "").asString(),
-                .author = dataset.get("author", "").asString(),
-                .description = dataset.get("description", "").asString(),
-                .license = dataset.get("License", "").asString(),
+                .name = dataset.get("title", "").asString(),
+                .author = dataset.get("creator_name", "").asString(),
+                .description = dataset.get("summary", "").asString(),
+                .license = dataset.get("license", "").asString(),
                 .dataset_path = dataset_path,
         }.to_json());
     }
