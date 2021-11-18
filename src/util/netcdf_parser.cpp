@@ -7,6 +7,7 @@
 #include <boost/date_time/posix_time/posix_time_duration.hpp>
 #include "netcdf_parser.h"
 #include <gdal/ogr_spatialref.h>
+#include <util/stringsplit.h>
 
 auto attribute_to_string(const H5::Attribute &attribute) -> std::string {
     std::string buffer;
@@ -279,26 +280,59 @@ std::ostream &operator<<(std::ostream &os, const NetCdfParser::NetCdfValue &valu
     return os;
 }
 
-auto NetCdfParser::unit_range(const std::vector<std::string> &entity_path) const -> std::array<double, 2> {
+auto NetCdfParser::unit_range(const std::string &entity_path) const -> std::array<double, 2> {
     const std::string value_range_identifier = "value_range";
+    const std::vector<std::string> entity_path_split = split(entity_path, '/');
 
-    H5::Group group = file.openGroup("/"); // open root group
-    for (const auto &group_name : entity_path) {
-        if (group.attrExists(value_range_identifier)) {
-            H5::Attribute value_range = group.openAttribute(value_range_identifier);
-            std::vector<double> range = attribute_to_casted_double_vector(value_range);
+    const auto enti = file.openDataSet(entity_path);
+    if (enti.attrExists(value_range_identifier)) {
+        H5::Attribute value_range = enti.openAttribute(value_range_identifier);
 
-            if (range.size() != 2) {
-                throw NetCdfParserException(concat("Attribute `value_range` must contain 2 element, but contains ", range.size()));
-            }
+        std::vector<double> range = attribute_to_casted_double_vector(value_range);
 
-            return {range[0], range[1]};
+        if (range.size() != 2) {
+            throw NetCdfParserException(concat("Attribute `value_range` must contain 2 element, but contains ", range.size()));
         }
 
-        group = group.openGroup(group_name);
+        return {range[0], range[1]};
+    }
+    else {
+        H5::Group group = file.openGroup("/"); // open root group
+        for (const auto &group_name : entity_path_split) {
+            if (group.attrExists(value_range_identifier)) {
+                H5::Attribute value_range = group.openAttribute(value_range_identifier);
+                std::vector<double> range = attribute_to_casted_double_vector(value_range);
+
+                if (range.size() != 2) {
+                    throw NetCdfParserException(concat("Attribute `value_range` must contain 2 element, but contains ", range.size()));
+                }
+
+                return {range[0], range[1]};
+            }
+
+            group = group.openGroup(group_name);
+        }
     }
 
     return {0., 1.}; // default if nothing is found
+
+    // H5::Group group = file.openGroup("/"); // open root group
+    // for (const auto &group_name : entity_path) {
+    //     if (group.attrExists(value_range_identifier)) {
+    //         H5::Attribute value_range = group.openAttribute(value_range_identifier);
+    //         std::vector<double> range = attribute_to_casted_double_vector(value_range);
+
+    //         if (range.size() != 2) {
+    //             throw NetCdfParserException(concat("Attribute `value_range` must contain 2 element, but contains ", range.size()));
+    //         }
+
+    //         return {range[0], range[1]};
+    //     }
+
+    //     group = group.openGroup(group_name);
+    // }
+
+    // return {0., 1.}; // default if nothing is found
 }
 
 /// Reads `to.capacity()` number of values from the attribute, casts it and pastes it to `to`

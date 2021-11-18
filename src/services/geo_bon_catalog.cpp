@@ -25,7 +25,7 @@ class GeoBonCatalogService : public HTTPService {
         void run() override;
 
         /// Load and return an ID specified EBV dataset from the catalog
-        void dataset(const std::string &id) const;
+        void dataset(UserDB::User &user, const std::string &id) const;
 
         /// Load and return all EBV classes from the catalog
         void classes() const;
@@ -45,7 +45,8 @@ class GeoBonCatalogService : public HTTPService {
         /// Extract and return meta data for loading the dataset
         void data_loading_info(UserDB::User &user,
                                const std::string &ebv_file,
-                               const std::vector<std::string> &ebv_entity_path) const;
+                               // const std::vector<std::string> &ebv_entity_path) const;
+                               const std::string &ebv_entity_path) const;
 
     private:
         struct EbvClass {
@@ -76,6 +77,8 @@ class GeoBonCatalogService : public HTTPService {
 
         template<class T>
         static auto toJsonArray(const std::vector<T> &vector) -> Json::Value;
+
+        static auto subgroups_json(const NetCdfParser &net_cdf_parser) -> Json::Value;
 };
 
 REGISTER_HTTP_SERVICE(GeoBonCatalogService, "geo_bon_catalog"); // NOLINT(cert-err58-cpp)
@@ -88,7 +91,7 @@ void GeoBonCatalogService::run() {
         const std::string &request = params.get("request");
 
         if (request == "dataset") {
-          this->dataset(params.get("id"));
+          this->dataset(session->getUser(), params.get("id"));
         } else if (request == "classes") {
             this->classes();
         } else if (request == "datasets") {
@@ -103,7 +106,8 @@ void GeoBonCatalogService::run() {
         } else if (request == "data_loading_info") {
             this->data_loading_info(session->getUser(),
                                     params.get("ebv_path"),
-                                    split(params.get("ebv_entity_path"), '/'));
+                                    // split(params.get("ebv_entity_path"), '/'));
+                                    params.get("ebv_entity_path"));
         } else { // FALLBACK
             response.sendFailureJSON("GeoBonCatalogService: Invalid request");
         }
@@ -113,16 +117,54 @@ void GeoBonCatalogService::run() {
     }
 }
 
-void GeoBonCatalogService::dataset(const std::string &id) const { //Development - iDiv - Thomas Bauer
+void GeoBonCatalogService::dataset(UserDB::User &user, const std::string &id) const {
+    // Dataset info
+
     const auto web_service_json = requestJsonFromUrl(combinePaths(
             Configuration::get<std::string>("ebv.webservice_endpoint"),
-            concat("datasets/id/", boost::algorithm::replace_all_copy(id, " ", "%20"))
+            concat("datasets/", boost::algorithm::replace_all_copy(id, " ", "%20"))
     ));
 
-    const auto dataset = web_service_json.get("data", Json::Value(Json::objectValue));
+    const auto dataset = web_service_json.get("data", Json::Value(Json::objectValue))[0];
+
+    const std::string dataset_path = combinePaths(
+            Configuration::get<std::string>("ebv.path"),
+            dataset.get("dataset", "").get("pathname", "").asString()
+    );
+    GeoBonCatalogService::addUserPermissions(user, dataset_path);
+
+    // Subgroups
+
+    NetCdfParser net_cdf_parser(dataset_path);
+    auto subgroups = subgroups_json(net_cdf_parser);
+
+    // Add values to each subgroup
+
+    std::vector<std::string> ebv_group_path;
+
+    Json::Value subgroups_array (Json::arrayValue);
+    for (auto &subgroup : subgroups) {
+        const auto ebv_subgroup = subgroup["name"].asString();
+
+        bool first_value_in_subgroup = true;
+
+        Json::Value values(Json::arrayValue);
+        for (const auto &subgroup_value : net_cdf_parser.ebv_subgroup_values(ebv_subgroup, ebv_group_path)) {
+            if (first_value_in_subgroup) {
+                ebv_group_path.push_back(subgroup_value.name);
+                first_value_in_subgroup = false;
+            }
+
+            values.append(subgroup_value.to_json());
+        }
+
+        subgroup["values"] = values;
+        subgroups_array.append(subgroup);
+    }
 
     Json::Value result(Json::objectValue);
     result["dataset"] = dataset;
+    result["subgroups_and_values"] = subgroups_array;
 
     response.sendSuccessJSON(result);
 }
@@ -137,7 +179,7 @@ void GeoBonCatalogService::classes() const {
     for (const auto &dataset : web_service_json["data"]) {
         std::vector<std::string> ebv_names;
 
-        const auto ebv_names_json = dataset.get("ebvName", Json::Value(Json::arrayValue));
+	const auto ebv_names_json = dataset.get("ebv_name", Json::Value(Json::arrayValue));
 
         ebv_names.reserve(ebv_names.size());
         for (const auto &ebvName : ebv_names_json) {
@@ -145,7 +187,7 @@ void GeoBonCatalogService::classes() const {
         }
 
         datasets.append(GeoBonCatalogService::EbvClass{
-                .name = dataset.get("ebvClass", "").asString(),
+                .name = dataset.get("ebv_class", "").asString(),
                 .ebv_names = ebv_names,
         }.to_json());
     }
@@ -159,24 +201,24 @@ void GeoBonCatalogService::classes() const {
 void GeoBonCatalogService::datasets(UserDB::User &user, const std::string &ebv_name) const {
     const auto web_service_json = requestJsonFromUrl(combinePaths(
             Configuration::get<std::string>("ebv.webservice_endpoint"),
-            concat("datasets/ebvName/", boost::algorithm::replace_all_copy(ebv_name, " ", "%20"))
+            concat("datasets/filter?ebvName=", boost::algorithm::replace_all_copy(ebv_name, " ", "+"))
     ));
 
     Json::Value datasets(Json::arrayValue);
     for (const auto &dataset : web_service_json["data"]) {
         const std::string dataset_path = combinePaths(
                 Configuration::get<std::string>("ebv.path"),
-                dataset.get("pathNameDataset", "").asString()
+                dataset.get("dataset", "").get("pathname", "").asString()
         );
 
         GeoBonCatalogService::addUserPermissions(user, dataset_path);
 
         datasets.append(GeoBonCatalogService::Dataset{
                 .id = dataset.get("id", "").asString(),
-                .name = dataset.get("name", "").asString(),
-                .author = dataset.get("author", "").asString(),
-                .description = dataset.get("description", "").asString(),
-                .license = dataset.get("License", "").asString(),
+                .name = dataset.get("title", "").asString(),
+                .author = dataset.get("creator", "").get("creator_name", "").asString(),
+                .description = dataset.get("summary", "").asString(),
+                .license = dataset.get("license", "").asString(),
                 .dataset_path = dataset_path,
         }.to_json());
     }
@@ -194,6 +236,13 @@ void GeoBonCatalogService::subgroups(UserDB::User &user, const std::string &ebv_
 
     NetCdfParser net_cdf_parser(ebv_file);
 
+    Json::Value result(Json::objectValue);
+    result["subgroups"] = subgroups_json(net_cdf_parser);
+
+    response.sendSuccessJSON(result);
+}
+
+auto GeoBonCatalogService::subgroups_json(const NetCdfParser &net_cdf_parser) -> Json::Value {
     const auto subgroup_names = net_cdf_parser.ebv_subgroups();
     const auto subgroup_descriptions = net_cdf_parser.ebv_subgroup_descriptions();
 
@@ -209,10 +258,7 @@ void GeoBonCatalogService::subgroups(UserDB::User &user, const std::string &ebv_
         subgroups_json.append(subgroup_json);
     }
 
-    Json::Value result(Json::objectValue);
-    result["subgroups"] = subgroups_json;
-
-    response.sendSuccessJSON(result);
+    return subgroups_json;
 }
 
 void GeoBonCatalogService::subgroup_values(UserDB::User &user,
@@ -238,7 +284,8 @@ void GeoBonCatalogService::subgroup_values(UserDB::User &user,
 
 void GeoBonCatalogService::data_loading_info(UserDB::User &user,
                                              const std::string &ebv_file,
-                                             const std::vector<std::string> &ebv_entity_path) const {
+                                             // const std::vector<std::string> &ebv_entity_path) const {
+                                             const std::string &ebv_entity_path) const {
     if (!hasUserPermissions(user, ebv_file)) {
         throw GeoBonCatalogServiceException(concat("GeoBonCatalogServiceException: Missing access rights for ", ebv_file));
     }

@@ -4,7 +4,7 @@
 #include "util.h"
 
 TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
-    NetCdfParser parser(test_util::get_data_dir() + "48/netcdf/cSAR_idiv_v1.nc");
+    NetCdfParser parser(test_util::get_data_dir() + "1/netcdf/cSAR_idiv_v1.nc");
 
     EXPECT_EQ(parser.ebv_class(), "Community composition");
     EXPECT_EQ(parser.ebv_name(), "Species diversity");
@@ -81,7 +81,7 @@ TEST(NetCdfParser, cSAR) { // NOLINT(cert-err58-cpp)
             "EPSG:4326"
     );
 
-    const auto unit_range = parser.unit_range(std::vector<std::string>{"past", "mean", "0"});
+    const auto unit_range = parser.unit_range(std::string{"past/mean/0"});
     ASSERT_EQ(unit_range.size(), 2);
     EXPECT_DOUBLE_EQ(unit_range[0], -31.24603271484375);
     EXPECT_DOUBLE_EQ(unit_range[1], 31.14495849609375);
